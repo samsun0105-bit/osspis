@@ -390,7 +390,7 @@
     </div>
 
     <script>
-        const apiKey = "AIzaSyBFMzU7kNCbfC9m2MR-cSrn13FC1VDMsKY";
+        const apiKey = "";
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'osspis-pro';
         let db;
         let isAdmin = false;
@@ -672,7 +672,7 @@
             const systemPrompt = `你是一位專業的職業安全衛生管理師。請根據作業名稱產生完整的安全衛生作業標準程序。輸出格式為 JSON，包含 type, method, name, tools, protective, steps (array of {step, desc, danger, safety, emergency})。`;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                const response = await fetch("/api/generate", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
