@@ -71,7 +71,11 @@ JSON 格式如下：
       }
     };
 
-const models = ["gemini-2.0-flash", "gemini-2.5-flash"];
+const models = [
+  "gemini-2.0-flash",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite"
+];
 
 let response;
 let data;
@@ -90,13 +94,10 @@ for (const model of models) {
 
   data = await response.json();
 
-  if (response.ok) {
-    break;
-  }
+  if (response.ok) break;
 
-  if (response.status !== 503 && response.status !== 429) {
-    break;
-  }
+  if (![429, 503].includes(response.status)) break;
+}
 }
     if (!response.ok) {
       console.error("Gemini API Error:", JSON.stringify(data, null, 2));
