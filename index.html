@@ -664,25 +664,75 @@
             showToast(isAdmin ? "已切換至管理模式" : "已退出管理模式");
         }
 
-        async function generateAIReport() {
-            const query = document.getElementById('search-input').value.trim();
-            if (!query) return showToast("請輸入欲生成的作業名稱", "error");
-            document.getElementById('loading-text').innerText = "AI 正在撰寫安全作業標準...";
-            document.getElementById('loading').classList.remove('hidden');
-            const systemPrompt = `你是一位專業的職業安全衛生管理師。請根據作業名稱產生完整的安全衛生作業標準程序。輸出格式為 JSON，包含 type, method, name, tools, protective, steps (array of {step, desc, danger, safety, emergency})。`;
+async function generateAIReport() {
+    const query = document.getElementById('search-input').value.trim();
+    if (!query) return showToast("請輸入欲生成的作業名稱", "error");
 
-            try {
-                const response = await fetch("/api/generate", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: query }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: { responseMimeType: "application/json" }
-                    })
-                });
-                const data = await response.json();
-                const result = JSON.parse(data.candidates[0].content.parts[0].text);
+    document.getElementById('loading-text').innerText = "AI 正在撰寫安全作業標準...";
+    document.getElementById('loading').classList.remove('hidden');
+
+    const systemPrompt = `你是一位專業的職業安全衛生管理師。請根據作業名稱產生完整的安全衛生作業標準程序。輸出格式為 JSON，包含 type, method, name, tools, protective, steps。steps 必須是 array，格式為 {step, desc, danger, safety, emergency}。請只輸出 JSON，不要加 markdown。`;
+
+    try {
+        const response = await fetch("/api/generate", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                query: query,
+                systemPrompt: systemPrompt
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error("API 錯誤：", data);
+            throw new Error(data.error?.message || "API 呼叫失敗");
+        }
+
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!text) {
+            console.error("Gemini 回傳格式異常：", data);
+            throw new Error("Gemini 沒有回傳文字內容");
+        }
+
+        const cleanText = text
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
+        const result = JSON.parse(cleanText);
+
+        currentLoadedReportId = null;
+        updateSaveBtnText();
+        renderReport(result);
+        setCurrentDate();
+        showToast("AI 報告生成完成");
+
+    } catch (error) {
+        console.error("生成錯誤：", error);
+        showToast("生成過程發生錯誤", "error");
+    } finally {
+        document.getElementById('loading').classList.add('hidden');
+    }
+}
+const response = await fetch("/api/generate", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        query: query,
+        systemPrompt: systemPrompt
+    })
+});
+const data = await response.json();
+
+if (!response.ok) {
+    console.error("API 錯誤：", data);
+    throw new Error(data.error?.message || "API 呼叫失敗");
+}
+
+const result = JSON.parse(data.candidates[0].content.parts[0].text);
                 currentLoadedReportId = null;
                 updateSaveBtnText();
                 renderReport(result);
