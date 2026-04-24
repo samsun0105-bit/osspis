@@ -62,18 +62,26 @@
             cursor: text;
         }
 
-        .a4-container {
-            width: 210mm;
-            min-height: 297mm;
-            padding: 20mm;
-            margin: auto;
-            background: white;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
+.a4-container {
+    width: 210mm;
+    min-height: 297mm;
+    height: auto;
+    padding: 20mm;
+    margin: 0 auto 80px auto;
+    background: white;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    color: #1e293b;
+    display: block;
+    position: relative;
+    overflow: visible;
+}
+
+#report-content-wrapper {
+    background: white;
+    min-height: 297mm;
+    height: auto;
+    overflow: visible;
+}
 
 @page {
     size: A4 portrait;
@@ -1046,31 +1054,75 @@ async function downloadPDF() {
         scrollX: 0,
         scrollY: 0,
         windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+        windowHeight: element.scrollHeight,
+        height: element.scrollHeight
     });
 
-    const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
-
     const pdf = new jsPDF('p', 'mm', 'a4');
 
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pageCanvasHeight = Math.floor(canvas.width * (pageHeight / pageWidth));
 
-    let heightLeft = imgHeight;
-    let position = 0;
+    const elementRect = element.getBoundingClientRect();
+    const rowBreaks = Array.from(document.querySelectorAll('#steps-body tr'))
+        .map(row => {
+            const rowRect = row.getBoundingClientRect();
+            return Math.floor((rowRect.bottom - elementRect.top) * 2);
+        })
+        .filter(y => y > 0 && y < canvas.height);
 
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    let sourceY = 0;
+    let pageIndex = 0;
 
-    while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+    while (sourceY < canvas.height) {
+        let targetY = Math.min(sourceY + pageCanvasHeight, canvas.height);
+
+        if (targetY < canvas.height) {
+            const safeBreaks = rowBreaks.filter(y => y > sourceY + 120 && y <= targetY - 40);
+            if (safeBreaks.length > 0) {
+                targetY = safeBreaks[safeBreaks.length - 1];
+            }
+        }
+
+        if (targetY <= sourceY) {
+            targetY = Math.min(sourceY + pageCanvasHeight, canvas.height);
+        }
+
+        const sliceHeight = targetY - sourceY;
+
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+
+        const ctx = pageCanvas.getContext('2d');
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        ctx.drawImage(
+            canvas,
+            0,
+            sourceY,
+            canvas.width,
+            sliceHeight,
+            0,
+            0,
+            canvas.width,
+            sliceHeight
+        );
+
+        const imgData = pageCanvas.toDataURL('image/png');
+        const imgHeight = (sliceHeight * pageWidth) / canvas.width;
+
+        if (pageIndex > 0) {
+            pdf.addPage();
+        }
+
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, imgHeight);
+
+        sourceY = targetY;
+        pageIndex++;
     }
 
     const fileName = document.getElementById('field-name').innerText || 'REPORT';
