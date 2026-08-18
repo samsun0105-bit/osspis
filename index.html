@@ -1356,10 +1356,17 @@ main {
                            placeholder="••••••">
                 </div>
 
-                <label class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 cursor-pointer">
-                    <input type="checkbox" id="editor-enabled-checkbox" class="w-4 h-4 accent-indigo-600">
-                    <span class="text-sm font-bold text-slate-700">啟用使用者共用權限</span>
-                </label>
+<label class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+    <input
+        type="checkbox"
+        id="editor-enabled-checkbox"
+        class="w-4 h-4 accent-indigo-600"
+        disabled
+    >
+    <span class="text-sm font-bold text-slate-700">
+        啟用使用者共用權限
+    </span>
+</label>
 
                 <p class="text-[11px] text-slate-400 leading-snug">
                     使用者權限可編輯、上傳附件、儲存、載入與匯出資料；刪除與權限設定仍限管理者。
@@ -1395,6 +1402,8 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'osspis-pro';
 
 const DEFAULT_ADMIN_PASSWORD = "SamCore@1068";
 const DEFAULT_EDITOR_PASSWORD = "TeamUser001";
+const DEFAULT_EDITOR_ENABLED = true;
+
 const MASTER_RECOVERY_CODE = "SAM-SUN-CORE-RECOVERY";
 
 let db;
@@ -1403,7 +1412,7 @@ let isEditor = false;
 
 let currentAdminPassword = DEFAULT_ADMIN_PASSWORD;
 let currentEditorPassword = DEFAULT_EDITOR_PASSWORD;
-let editorEnabled = true;
+let editorEnabled = DEFAULT_EDITOR_ENABLED;
 
 let currentLoadedReportId = null;
 let isReportEditMode = false;
@@ -1557,8 +1566,21 @@ exportBtn.removeAttribute('title');
     initIcons();
 }
 
-        // 預設分類
-        let categories = ["機械加工類", "化學品作業類", "電氣工程類", "物流倉儲類", "一般通用類"];
+// 預設分類範本
+const DEFAULT_CATEGORIES = [
+    "機械加工類",
+    "化學品作業類",
+    "電氣工程類",
+    "物流倉儲類",
+    "一般通用類"
+];
+
+/*
+ * 本次工作階段正式資料。
+ * 不永久寫入 IndexedDB。
+ */
+let categories = [...DEFAULT_CATEGORIES];
+let standards = [];
 
         async function initDB() {
             return new Promise((resolve, reject) => {
@@ -1586,67 +1608,109 @@ exportBtn.removeAttribute('title');
             });
         }
 
-        async function loadSettings() {
-            return new Promise((resolve) => {
-                const tx = db.transaction('settings', 'readonly');
-                const store = tx.objectStore('settings');
+async function loadSettings() {
+    /*
+     * 正式權限一律以目前 GitHub HTML
+     * 的 DEFAULT_* 設定為準。
+     */
+    currentAdminPassword =
+        DEFAULT_ADMIN_PASSWORD;
 
-                const adminReq = store.get('adminPassword');
-                const editorReq = store.get('editorPassword');
-                const editorEnabledReq = store.get('editorEnabled');
-                const catReq = store.get('categories');
+    currentEditorPassword =
+        DEFAULT_EDITOR_PASSWORD;
 
-                adminReq.onsuccess = () => {
-                    if (adminReq.result && adminReq.result.value) {
-                        currentAdminPassword = adminReq.result.value;
-                    }
+    editorEnabled =
+        DEFAULT_EDITOR_ENABLED;
 
-                    if (!currentAdminPassword || currentAdminPassword === "1068") {
-                        currentAdminPassword = DEFAULT_ADMIN_PASSWORD;
-                        const writeTx = db.transaction('settings', 'readwrite');
-                        writeTx.objectStore('settings').put({
-                            key: 'adminPassword',
-                            value: DEFAULT_ADMIN_PASSWORD
-                        });
-                    }
-                };
+    /*
+     * 每次重新開啟系統，
+     * 都建立乾淨的工作階段。
+     */
+    categories =
+        [...DEFAULT_CATEGORIES];
 
-                editorReq.onsuccess = () => {
-                    if (editorReq.result && editorReq.result.value) {
-                        currentEditorPassword = editorReq.result.value;
-                    } else {
-                        const writeTx = db.transaction('settings', 'readwrite');
-                        writeTx.objectStore('settings').put({
-                            key: 'editorPassword',
-                            value: DEFAULT_EDITOR_PASSWORD
-                        });
-                    }
-                };
+    standards = [];
 
-                editorEnabledReq.onsuccess = () => {
-                    if (editorEnabledReq.result && typeof editorEnabledReq.result.value !== "undefined") {
-                        editorEnabled = Boolean(editorEnabledReq.result.value);
-                    } else {
-                        editorEnabled = true;
-                        const writeTx = db.transaction('settings', 'readwrite');
-                        writeTx.objectStore('settings').put({
-                            key: 'editorEnabled',
-                            value: true
-                        });
-                    }
-                };
+    /*
+     * 清除舊版本可能留在 IndexedDB
+     * 的程序書、附件、分類及權限資料。
+     */
+    await clearPersistedSystemData();
+}
 
-                catReq.onsuccess = () => { 
-                    if (catReq.result) categories = catReq.result.value;
-                    resolve();
-                };
-            });
-        }
+async function saveCategoriesToDB() {
+    /*
+     * 保留原函式名稱，
+     * 避免改動新增／修改／刪除分類的既有流程。
+     *
+     * categories 已直接存在目前工作階段記憶體，
+     * 此處不再寫入 IndexedDB。
+     */
+    return Promise.resolve();
+}
 
-        async function saveCategoriesToDB() {
-            const tx = db.transaction('settings', 'readwrite');
-            tx.objectStore('settings').put({ key: 'categories', value: categories });
-        }
+function getNextStandardId() {
+    return standards.reduce(
+        (maxId, item) => {
+            const id = Number(item?.id) || 0;
+            return Math.max(maxId, id);
+        },
+        0
+    ) + 1;
+}
+
+
+/*
+ * 清除舊版本可能殘留在 IndexedDB 的
+ * 程序書、PDF / Word 附件、分類及權限資料。
+ *
+ * IndexedDB 僅保留空的資料庫結構，
+ * 不再作為正式資料儲存來源。
+ */
+async function clearPersistedSystemData() {
+    if (!db) return;
+
+    return new Promise((resolve, reject) => {
+        const tx =
+            db.transaction(
+                [
+                    'standards',
+                    'settings'
+                ],
+                'readwrite'
+            );
+
+        tx.objectStore(
+            'standards'
+        ).clear();
+
+        tx.objectStore(
+            'settings'
+        ).clear();
+
+        tx.oncomplete = () => {
+            resolve();
+        };
+
+        tx.onerror = () => {
+            reject(
+                tx.error ||
+                new Error(
+                    '清除舊版本本機資料失敗'
+                )
+            );
+        };
+
+        tx.onabort = () => {
+            reject(
+                tx.error ||
+                new Error(
+                    '清除舊版本本機資料已中止'
+                )
+            );
+        };
+    });
+}
 
 function renderCategories() {
     const select =
@@ -1767,7 +1831,7 @@ function clearReportDisplayToBlank() {
 
 /* =========================================================
    清除預覽者目前工作資料
-   不會清除 IndexedDB 正式資料
+   預覽資料只存在目前頁面記憶體
 ========================================================= */
 function clearViewerWorkingData() {
     previewCategories = null;
@@ -1902,13 +1966,20 @@ function openLoginModal() {
                     fileContent: fileData
                 };
 
-                const tx = db.transaction('standards', 'readwrite');
-                tx.objectStore('standards').add(report);
-                tx.oncomplete = () => {
-                    document.getElementById('loading').classList.add('hidden');
-                    showToast("檔案上傳成功");
-                    updateReportsDropdown();
-                };
+report.id =
+    getNextStandardId();
+
+standards.push(report);
+
+document.getElementById(
+    'loading'
+).classList.add('hidden');
+
+showToast(
+    "檔案上傳成功"
+);
+
+updateReportsDropdown();
             };
             reader.readAsDataURL(file);
         }
@@ -1948,37 +2019,56 @@ function openLoginModal() {
 
 function removeCategory() {
     if (!canDeleteData()) {
-        return showToast("只有管理者可以刪除分類。", "error");
+        return showToast(
+            "只有管理者可以刪除分類。",
+            "error"
+        );
     }
 
-    const name = document.getElementById('category-select').value;
+    const name =
+        document.getElementById(
+            'category-select'
+        ).value;
+
     if (!name) return;
 
-    const tx = db.transaction('standards', 'readonly');
-    const store = tx.objectStore('standards');
-    const req = store.getAll();
+    /*
+     * 直接檢查目前工作階段 standards。
+     */
+    const hasReports =
+        standards.some(
+            item =>
+                item.category === name
+        );
 
-    req.onsuccess = () => {
-        const allItems = req.result || [];
-        const hasReports = allItems.some(item => item.category === name);
+    if (hasReports) {
+        alert(
+            `無法刪除「${name}」分類。\n\n` +
+            `此分類下仍有已儲存程序書。\n` +
+            `請先刪除該分類內的程序書後，再刪除此分類。`
+        );
+        return;
+    }
 
-        if (hasReports) {
-            alert(`無法刪除「${name}」分類。\n\n此分類下仍有已儲存程序書。\n請先刪除該分類內的程序書後，再刪除此分類。`);
-            return;
-        }
+    if (
+        confirm(
+            `確定要刪除「${name}」分類嗎？`
+        )
+    ) {
+        categories =
+            categories.filter(
+                c => c !== name
+            );
 
-        if (confirm(`確定要刪除「${name}」分類嗎？`)) {
-            categories = categories.filter(c => c !== name);
-            saveCategoriesToDB();
-            renderCategories();
-            updateReportsDropdown();
-            showToast("分類已刪除", "error");
-        }
-    };
+        saveCategoriesToDB();
+        renderCategories();
+        updateReportsDropdown();
 
-    req.onerror = () => {
-        showToast("檢查分類資料失敗，請稍後再試。", "error");
-    };
+        showToast(
+            "分類已刪除",
+            "error"
+        );
+    }
 }
 
         function setCurrentDate() {
@@ -2001,7 +2091,9 @@ function removeCategory() {
                 document.getElementById('old-password').value = "";
                 document.getElementById('new-admin-password').value = "";
                 document.getElementById('new-editor-password').value = "";
-                document.getElementById('editor-enabled-checkbox').checked = editorEnabled;
+                document.getElementById(
+    'editor-enabled-checkbox'
+).checked = DEFAULT_EDITOR_ENABLED;
 
                 const err = document.getElementById('pwd-change-error');
                 if (err) {
@@ -2037,30 +2129,38 @@ async function verifyAdmin() {
 
     if (loginError) loginError.classList.add('hidden');
 
-    if (pwd === MASTER_RECOVERY_CODE) {
-        const tx = db.transaction('settings', 'readwrite');
-        const store = tx.objectStore('settings');
+if (pwd === MASTER_RECOVERY_CODE) {
+    currentAdminPassword =
+        DEFAULT_ADMIN_PASSWORD;
 
-        store.put({ key: 'adminPassword', value: DEFAULT_ADMIN_PASSWORD });
-        store.put({ key: 'editorPassword', value: DEFAULT_EDITOR_PASSWORD });
-        store.put({ key: 'editorEnabled', value: true });
+    currentEditorPassword =
+        DEFAULT_EDITOR_PASSWORD;
 
-        currentAdminPassword = DEFAULT_ADMIN_PASSWORD;
-        currentEditorPassword = DEFAULT_EDITOR_PASSWORD;
-        editorEnabled = true;
+    editorEnabled =
+        DEFAULT_EDITOR_ENABLED;
 
-        isAdmin = false;
-        isEditor = false;
-        previewCategories = null;
-        previewStandards = null;
+    isAdmin = false;
+    isEditor = false;
 
-        toggleAdmin(false);
-        toggleModal('login-modal', false);
+    previewCategories = null;
+    previewStandards = null;
 
-        document.getElementById('admin-password').value = "";
-        showToast("權限設定已恢復預設值，請重新登入後再修改密碼。");
-        return;
-    }
+    toggleAdmin(false);
+    toggleModal(
+        'login-modal',
+        false
+    );
+
+    document.getElementById(
+        'admin-password'
+    ).value = "";
+
+    showToast(
+        "權限設定已恢復預設值，請重新登入後再修改密碼。"
+    );
+
+    return;
+}
 
     if (pwd === currentAdminPassword) {
         isAdmin = true;
@@ -2093,69 +2193,126 @@ async function verifyAdmin() {
     document.getElementById('admin-password').value = "";
 }
 
-        async function changeAdminPassword() {
-            const err = document.getElementById('pwd-change-error');
-            if (err) {
-                err.innerText = "";
-                err.classList.add('hidden');
-            }
+async function changeAdminPassword() {
+    const err =
+        document.getElementById(
+            'pwd-change-error'
+        );
 
-            if (!canChangePassword()) {
-                if (err) {
-                    err.innerText = "請先以管理者登入";
-                    err.classList.remove('hidden');
-                }
-                alert("只有管理者可以修改權限與密碼設定。");
-return;
-            }
+    if (err) {
+        err.innerText = "";
+        err.classList.add('hidden');
+    }
 
-            const oldPwd = document.getElementById('old-password').value;
-            const newAdminPwd = document.getElementById('new-admin-password').value.trim();
-            const newEditorPwd = document.getElementById('new-editor-password').value.trim();
-            const editorEnabledNext = document.getElementById('editor-enabled-checkbox').checked;
+    if (!canChangePassword()) {
+        if (err) {
+            err.innerText =
+                "請先以管理者登入";
 
-            if (newAdminPwd) {
-                if (!oldPwd) {
-                    if (err) {
-                        err.innerText = "修改管理者密碼時，請先輸入目前管理者密碼";
-                        err.classList.remove('hidden');
-                    }
-                    return;
-                }
-
-                if (oldPwd !== currentAdminPassword) {
-                    if (err) {
-                        err.innerText = "目前管理者密碼不正確";
-                        err.classList.remove('hidden');
-                    }
-                    return;
-                }
-            }
-
-            const tx = db.transaction('settings', 'readwrite');
-            const store = tx.objectStore('settings');
-
-            if (newAdminPwd) {
-                currentAdminPassword = newAdminPwd;
-                store.put({ key: 'adminPassword', value: currentAdminPassword });
-            }
-
-            if (newEditorPwd) {
-                currentEditorPassword = newEditorPwd;
-                store.put({ key: 'editorPassword', value: currentEditorPassword });
-            }
-
-            editorEnabled = editorEnabledNext;
-            store.put({ key: 'editorEnabled', value: editorEnabled });
-
-            toggleModal('password-modal', false);
-
-            document.getElementById('old-password').value = "";
-            document.getElementById('new-admin-password').value = "";
-            document.getElementById('new-editor-password').value = "";
-
-            alert("權限與密碼設定已更新成功！");
+            err.classList.remove(
+                'hidden'
+            );
         }
+
+        alert(
+            "只有管理者可以修改權限與密碼設定。"
+        );
+
+        return;
+    }
+
+    const oldPwd =
+        document.getElementById(
+            'old-password'
+        ).value;
+
+    const newAdminPwd =
+        document.getElementById(
+            'new-admin-password'
+        ).value.trim();
+
+    const newEditorPwd =
+        document.getElementById(
+            'new-editor-password'
+        ).value.trim();
+
+    /*
+     * 只有修改管理者密碼時，
+     * 才驗證目前管理者密碼。
+     */
+    if (newAdminPwd) {
+        if (!oldPwd) {
+            if (err) {
+                err.innerText =
+                    "修改管理者密碼時，請先輸入目前管理者密碼";
+
+                err.classList.remove(
+                    'hidden'
+                );
+            }
+
+            return;
+        }
+
+        if (
+            oldPwd !==
+            currentAdminPassword
+        ) {
+            if (err) {
+                err.innerText =
+                    "目前管理者密碼不正確";
+
+                err.classList.remove(
+                    'hidden'
+                );
+            }
+
+            return;
+        }
+
+        /*
+         * 只修改目前工作階段。
+         */
+        currentAdminPassword =
+            newAdminPwd;
+    }
+
+    if (newEditorPwd) {
+        /*
+         * 只修改目前工作階段。
+         */
+        currentEditorPassword =
+            newEditorPwd;
+    }
+
+    /*
+     * 使用者正式啟用狀態
+     * 永遠以 GitHub HTML 為準。
+     */
+    editorEnabled =
+        DEFAULT_EDITOR_ENABLED;
+
+    toggleModal(
+        'password-modal',
+        false
+    );
+
+    document.getElementById(
+        'old-password'
+    ).value = "";
+
+    document.getElementById(
+        'new-admin-password'
+    ).value = "";
+
+    document.getElementById(
+        'new-editor-password'
+    ).value = "";
+
+    alert(
+        "權限與密碼設定已更新成功！"
+    );
+}
 
 function resetReportToBlank(silent = false) {
     const fileOverlay =
@@ -2289,19 +2446,41 @@ function toggleReportEditMode() {
 }
 
 function toggleAdmin(status) {
-    if (!status) {
-        isAdmin = false;
-        isEditor = false;
+if (!status) {
+    isAdmin = false;
+    isEditor = false;
 
-        /*
-         * 退出管理者／使用者模式後，
-         * 回到完全空白的預覽者畫面。
-         */
-        previewCategories = null;
-        previewStandards = null;
+    /*
+     * 登出後恢復 GitHub HTML 正式權限。
+     */
+    currentAdminPassword =
+        DEFAULT_ADMIN_PASSWORD;
 
-        clearReportDisplayToBlank();
-    }
+    currentEditorPassword =
+        DEFAULT_EDITOR_PASSWORD;
+
+    editorEnabled =
+        DEFAULT_EDITOR_ENABLED;
+
+    /*
+     * 清除本次正式工作資料。
+     */
+    standards = [];
+
+    categories =
+        [...DEFAULT_CATEGORIES];
+
+    /*
+     * 清除預覽者暫存資料。
+     */
+    previewCategories = null;
+    previewStandards = null;
+
+    currentLoadedReportId = null;
+    isReportEditMode = false;
+
+    clearReportDisplayToBlank();
+}
 
             const canEdit = canEditData();
             const canDelete = canDeleteData();
@@ -2665,28 +2844,49 @@ async function updateReportsDropdown() {
                 return;
             }
 
-            const tx = db.transaction('standards', 'readonly');
-            const store = tx.objectStore('standards');
-            const req = store.getAll();
+const filtered =
+    standards.filter(
+        item =>
+            item.category === category
+    );
 
-            req.onsuccess = (e) => {
-                const allItems = e.target.result;
-                const filtered = allItems.filter(item => item.category === category);
+dropdown.innerHTML =
+    filtered.length === 0
+        ? '<option value="">此分類尚無程序書</option>'
+        : '<option value="">-- 請選擇程序書 --</option>';
 
-                dropdown.innerHTML = filtered.length === 0
-                    ? '<option value="">此分類尚無程序書</option>'
-                    : '<option value="">-- 請選擇程序書 --</option>';
+filtered
+    .sort(
+        (a, b) =>
+            (b.timestamp || 0) -
+            (a.timestamp || 0)
+    )
+    .forEach(item => {
+        const opt =
+            document.createElement(
+                'option'
+            );
 
-                filtered.sort((a, b) => b.timestamp - a.timestamp).forEach(item => {
-                    const opt = document.createElement('option');
-                    opt.value = item.id;
-                    const prefix = item.isExternalFile ? `[${item.fileType.toUpperCase()}] ` : "[程序] ";
-                    opt.textContent = prefix + item.name;
-                    dropdown.appendChild(opt);
-                });
+        opt.value = item.id;
 
-                initIcons();
-            };
+        const prefix =
+            item.isExternalFile
+                ? `[${String(
+                    item.fileType || ''
+                ).toUpperCase()}] `
+                : "[程序] ";
+
+        opt.textContent =
+            prefix +
+            (
+                item.name ||
+                "未命名程序書"
+            );
+
+        dropdown.appendChild(opt);
+    });
+
+initIcons();
         }
 
         function handleDropdownSelection() {
@@ -2721,26 +2921,30 @@ async function updateReportsDropdown() {
                 return;
             }
 
-            const tx = db.transaction('standards', 'readonly');
-            const store = tx.objectStore('standards');
-            const req = store.get(id);
+const data =
+    standards.find(
+        item =>
+            Number(item.id) ===
+            Number(id)
+    );
 
-            req.onsuccess = () => {
-                const data = req.result;
-                if (data) {
-                    currentLoadedReportId = data.id;
-                    updateSaveBtnText();
+if (data) {
+    currentLoadedReportId =
+        data.id;
 
-                    if(data.isExternalFile) {
-                        renderExternalFile(data);
-                    } else {
-                        renderReport(data);
-                    }
+    updateSaveBtnText();
 
-                    showToast("已載入：" + data.name);
-                }
-            };
-        }
+    if (data.isExternalFile) {
+        renderExternalFile(data);
+    } else {
+        renderReport(data);
+    }
+
+    showToast(
+        "已載入：" + data.name
+    );
+}
+}
 
 function updateSaveBtnText() {
     const btnText = document.getElementById('save-btn-text');
@@ -2791,23 +2995,57 @@ async function saveReport() {
                 footerDate: document.getElementById('footer-date').innerText,
                 steps: steps, category: document.getElementById('category-select').value, timestamp: Date.now()
             };
-            if (currentLoadedReportId) report.id = currentLoadedReportId;
-const isNewReport = !currentLoadedReportId;
+let isNewReport =
+    !currentLoadedReportId;
 
-const tx = db.transaction('standards', 'readwrite');
-const store = tx.objectStore('standards');
+if (currentLoadedReportId) {
+    const index =
+        standards.findIndex(
+            item =>
+                Number(item.id) ===
+                Number(
+                    currentLoadedReportId
+                )
+        );
 
-const saveReq = store.put(report);
+    if (index !== -1) {
+        report.id =
+            currentLoadedReportId;
 
-saveReq.onsuccess = () => {
-    currentLoadedReportId = saveReq.result;
-    updateSaveBtnText();
-};
+        standards[index] =
+            report;
 
-tx.oncomplete = () => {
-    showToast(isNewReport ? "新程序書已收錄" : "修改已儲存");
-    updateReportsDropdown();
-};
+    } else {
+        report.id =
+            getNextStandardId();
+
+        standards.push(report);
+
+        currentLoadedReportId =
+            report.id;
+
+        isNewReport = true;
+    }
+
+} else {
+    report.id =
+        getNextStandardId();
+
+    standards.push(report);
+
+    currentLoadedReportId =
+        report.id;
+}
+
+updateSaveBtnText();
+
+showToast(
+    isNewReport
+        ? "新程序書已收錄"
+        : "修改已儲存"
+);
+
+updateReportsDropdown();
         }
 
         async function deleteSelectedReport() {
@@ -2823,15 +3061,31 @@ tx.oncomplete = () => {
             
             if (!confirm("⚠️ 警告：確定要永久移除這份程序書嗎？此動作無法復原。")) return;
             
-            const tx = db.transaction('standards', 'readwrite');
-            tx.objectStore('standards').delete(id);
-            tx.oncomplete = () => {
-                showToast("程序書已成功移除", "error");
-                currentLoadedReportId = null;
-                updateSaveBtnText();
-                updateReportsDropdown();
-                renderReport({ type: '--', method: '--', name: '--', tools: '--', protective: '--', steps: [] });
-            };
+standards =
+    standards.filter(
+        item =>
+            Number(item.id) !==
+            Number(id)
+    );
+
+showToast(
+    "程序書已成功移除",
+    "error"
+);
+
+currentLoadedReportId = null;
+
+updateSaveBtnText();
+updateReportsDropdown();
+
+renderReport({
+    type: '--',
+    method: '--',
+    name: '--',
+    tools: '--',
+    protective: '--',
+    steps: []
+});
         }
 
 function triggerImportDB() {
@@ -2859,26 +3113,38 @@ function triggerImportDB() {
 }
 
 function getAllFromStore(storeName) {
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readonly');
-        const req = tx.objectStore(storeName).getAll();
+    /*
+     * 保留函式名稱以相容既有 exportDB()。
+     * 正式資料改從目前工作階段記憶體取得。
+     */
+    if (storeName === 'standards') {
+        return Promise.resolve(
+            standards.map(
+                item => ({ ...item })
+            )
+        );
+    }
 
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
-    });
+    return Promise.resolve([]);
 }
 
-function getSettingValue(key, fallbackValue = null) {
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('settings', 'readonly');
-        const req = tx.objectStore('settings').get(key);
 
-        req.onsuccess = () => {
-            resolve(req.result ? req.result.value : fallbackValue);
-        };
+function getSettingValue(
+    key,
+    fallbackValue = null
+) {
+    /*
+     * categories 改從目前工作階段記憶體取得。
+     */
+    if (key === 'categories') {
+        return Promise.resolve(
+            [...categories]
+        );
+    }
 
-        req.onerror = () => reject(req.error);
-    });
+    return Promise.resolve(
+        fallbackValue
+    );
 }
 
 async function exportDB() {
@@ -3005,60 +3271,64 @@ updateDataActionButtons();
                 return;
             }
 
+/*
+ * 使用者 / 管理者模式：
+ * 正式載入到目前工作階段記憶體。
+ * 不永久寫入 IndexedDB。
+ */
+previewCategories = null;
+previewStandards = null;
+
+/*
+ * 比照舊版 IndexedDB autoIncrement，
+ * 每次正式載入重新建立本次工作階段 ID。
+ */
+standards =
+    importedStandards.map(
+        (item, index) => {
+            const cleanItem = {
+                ...item
+            };
+
+            delete cleanItem.id;
+            delete cleanItem.previewIndex;
+
             /*
-             * 使用者 / 管理者模式：
-             * 正式寫入 IndexedDB，但不處理密碼與權限設定。
+             * 永遠不處理密碼與權限設定。
              */
-            previewCategories = null;
-            previewStandards = null;
+            delete cleanItem.adminPassword;
+            delete cleanItem.editorPassword;
+            delete cleanItem.editorEnabled;
 
-            const tx = db.transaction(['standards', 'settings'], 'readwrite');
-            const standardsStore = tx.objectStore('standards');
-            const settingsStore = tx.objectStore('settings');
-
-            const clearReq = standardsStore.clear();
-
-            clearReq.onsuccess = () => {
-                importedStandards.forEach(item => {
-                    const cleanItem = { ...item };
-                    delete cleanItem.id;
-                    delete cleanItem.previewIndex;
-
-                    /*
-                     * 永遠不匯入密碼與權限設定：
-                     * adminPassword
-                     * editorPassword
-                     * editorEnabled
-                     */
-                    delete cleanItem.adminPassword;
-                    delete cleanItem.editorPassword;
-                    delete cleanItem.editorEnabled;
-
-                    standardsStore.put(cleanItem);
-                });
-
-                if (importedCategories && importedCategories.length > 0) {
-                    categories = importedCategories;
-                    settingsStore.put({
-                        key: 'categories',
-                        value: categories
-                    });
-                }
+            return {
+                ...cleanItem,
+                id: index + 1
             };
+        }
+    );
 
-            tx.oncomplete = () => {
-                renderCategories();
-                updateReportsDropdown();
-                updateDataActionButtons();
-                initIcons();
+if (
+    importedCategories &&
+    importedCategories.length > 0
+) {
+    categories =
+        [...importedCategories];
+}
 
-                alert(`${actionLabel}成功！`);
-            };
+/*
+ * 確保舊版本 IndexedDB
+ * 不留下任何正式資料。
+ */
+await clearPersistedSystemData();
 
-            tx.onerror = () => {
-                console.error("匯入資料失敗：", tx.error);
-                alert(`${actionLabel}失敗，請確認 JSON 檔案是否正確。`);
-            };
+renderCategories();
+updateReportsDropdown();
+updateDataActionButtons();
+initIcons();
+
+alert(
+    `${actionLabel}成功！`
+);
 
         } catch (err) {
             console.error("載入資料失敗：", err);
@@ -3250,7 +3520,7 @@ function updateMobilePreviewScale() {
    管理者／使用者登出
    確認後回到預覽者模式，完成訊息顯示於右下角
 ========================================================= */
-function logoutSystem() {
+async function logoutSystem() {
     /*
      * 預覽者狀態不需要執行登出。
      */
@@ -3273,6 +3543,28 @@ function logoutSystem() {
      * 清除管理者／使用者權限，
      * 並執行既有的登出畫面更新流程。
      */
+
+try {
+    /*
+     * 登出前確認舊版本 IndexedDB
+     * 不留下任何資料。
+     */
+    await clearPersistedSystemData();
+
+} catch (error) {
+    console.error(
+        "清除本機暫存資料失敗：",
+        error
+    );
+
+    showToast(
+        "清除本機暫存資料失敗，請重新整理後再試。",
+        "error"
+    );
+
+    return;
+}     
+
     toggleAdmin(false);
 
     /*
