@@ -1417,6 +1417,108 @@ let editorEnabled = DEFAULT_EDITOR_ENABLED;
 let currentLoadedReportId = null;
 let isReportEditMode = false;
 
+
+/* =========================================================
+   工作階段防呆狀態
+========================================================= */
+
+/*
+ * 目前程序書畫面已有修改，
+ * 但尚未按下「儲存／儲存修改」。
+ *
+ * 包含：
+ * - AI 新產生的程序書
+ * - 基本資料人工修改
+ * - 工作步驟人工修改
+ */
+let reportDraftDirty = false;
+
+
+/*
+ * 正式 Session 資料已有變更，
+ * 但最新成果尚未匯出 JSON。
+ *
+ * 包含：
+ * - 儲存／更新程序書
+ * - 上傳 PDF / Word
+ * - 新增／修改／刪除分類
+ * - 刪除程序書
+ */
+let sessionNeedsExport = false;
+
+
+/*
+ * 防止重複點擊登出。
+ */
+let isLoggingOut = false;
+
+
+function hasUnsavedReportChanges() {
+    return reportDraftDirty;
+}
+
+
+function hasPendingSessionChanges() {
+    return (
+        reportDraftDirty ||
+        sessionNeedsExport
+    );
+}
+
+
+function markReportDraftDirty() {
+    if (canEditData()) {
+        reportDraftDirty = true;
+    }
+}
+
+
+function markSessionNeedsExport() {
+    if (canEditData()) {
+        sessionNeedsExport = true;
+    }
+}
+
+
+function clearWorkProtectionState() {
+    reportDraftDirty = false;
+    sessionNeedsExport = false;
+}
+
+
+function confirmDiscardReportDraft(
+    actionLabel = "繼續"
+) {
+    if (!reportDraftDirty) {
+        return true;
+    }
+
+    return confirm(
+        "目前程序書仍有尚未儲存的修改。\n\n" +
+        `${actionLabel}將放棄目前尚未儲存的內容。\n\n` +
+        "確定要繼續嗎？"
+    );
+}
+
+
+/*
+ * F5、關閉分頁、關閉瀏覽器、
+ * 離開目前網站時的最後防呆。
+ */
+window.addEventListener(
+    "beforeunload",
+    event => {
+
+        if (!hasPendingSessionChanges()) {
+            return;
+        }
+
+        event.preventDefault();
+        event.returnValue = "";
+    }
+);
+
+
 /* 預覽者載入 JSON 專用暫存資料，不寫入 IndexedDB */
 let previewCategories = null;
 let previewStandards = null;
@@ -1646,6 +1748,9 @@ async function saveCategoriesToDB() {
      * categories 已直接存在目前工作階段記憶體，
      * 此處不再寫入 IndexedDB。
      */
+
+    markSessionNeedsExport();
+
     return Promise.resolve();
 }
 
@@ -1971,6 +2076,12 @@ report.id =
 
 standards.push(report);
 
+/*
+ * 外部 PDF / Word 一上傳即直接加入正式 Session，
+ * 因此不經過「儲存」草稿階段。
+ */
+markSessionNeedsExport();
+
 document.getElementById(
     'loading'
 ).classList.add('hidden');
@@ -1999,23 +2110,120 @@ updateReportsDropdown();
             }
         }
 
-        function editCategory() {
-            if (!canManageCategory()) {
-                return showToast("請先登入使用者或管理者權限後再修改分類。", "error");
-            }
-            const oldName = document.getElementById('category-select').value;
-            if (!oldName) return;
-            const newName = prompt("請輸入新的分類名稱：", oldName);
-            if (newName && newName.trim() && newName !== oldName) {
-                const index = categories.indexOf(oldName);
-                if (index !== -1) {
-                    categories[index] = newName.trim();
-                    saveCategoriesToDB();
-                    renderCategories();
-                    showToast("分類名稱已修改");
-                }
+function editCategory() {
+    if (!canManageCategory()) {
+        return showToast(
+            "請先登入使用者或管理者權限後再修改分類。",
+            "error"
+        );
+    }
+
+    const categorySelect =
+        document.getElementById(
+            'category-select'
+        );
+
+    const oldName =
+        categorySelect
+            ? categorySelect.value
+            : '';
+
+    if (!oldName) {
+        return;
+    }
+
+    const input =
+        prompt(
+            "請輸入新的分類名稱：",
+            oldName
+        );
+
+    if (input === null) {
+        return;
+    }
+
+    const newName =
+        input.trim();
+
+    /*
+     * 空白或名稱完全沒變：
+     * 不視為實際修改。
+     */
+    if (
+        !newName ||
+        newName === oldName
+    ) {
+        return;
+    }
+
+    /*
+     * 避免產生重複分類名稱。
+     */
+    if (
+        categories.includes(
+            newName
+        )
+    ) {
+        return showToast(
+            "該分類已存在",
+            "error"
+        );
+    }
+
+    const index =
+        categories.indexOf(
+            oldName
+        );
+
+    if (index === -1) {
+        return;
+    }
+
+    /*
+     * 修改分類本身。
+     */
+    categories[index] =
+        newName;
+
+    /*
+     * 同步修改該分類下所有
+     * 已正式儲存程序書的 category。
+     */
+    standards.forEach(
+        item => {
+            if (
+                item.category ===
+                oldName
+            ) {
+                item.category =
+                    newName;
             }
         }
+    );
+
+    /*
+     * saveCategoriesToDB()
+     * 現在同時負責標記：
+     * sessionNeedsExport = true。
+     */
+    saveCategoriesToDB();
+
+    renderCategories();
+
+    /*
+     * 改名後仍停留在新分類。
+     */
+    if (categorySelect) {
+        categorySelect.value =
+            newName;
+    }
+
+    updateReportsDropdown();
+
+    showToast(
+        "分類名稱已修改"
+    );
+}
 
 function removeCategory() {
     if (!canDeleteData()) {
@@ -2351,9 +2559,19 @@ function resetReportToBlank(silent = false) {
         return;
     }
 
-    clearReportDisplayToBlank();
+clearReportDisplayToBlank();
 
-    if (!silent) {
+/*
+ * 使用者已明確確認放棄目前畫面草稿。
+ *
+ * 注意：
+ * 只清 reportDraftDirty，
+ * 不可清 sessionNeedsExport，
+ * 因為之前正式儲存的資料可能仍尚未匯出。
+ */
+reportDraftDirty = false;
+
+if (!silent) {
         showToast(
             "已回到原始畫面。"
         );
@@ -2445,6 +2663,38 @@ function toggleReportEditMode() {
     showToast(isReportEditMode ? "已進入編輯模式" : "已切換為檢視狀態");
 }
 
+/*
+ * contenteditable 欄位沒有一般表單的 change 機制，
+ * 因此統一使用 input 事件判斷真正的人工編輯。
+ *
+ * renderReport() 透過程式設定 innerText
+ * 不會觸發這個 input 事件，
+ * 所以載入正式資料不會被誤判為修改。
+ */
+document.addEventListener(
+    "input",
+    event => {
+
+        if (!canEditReportNow()) {
+            return;
+        }
+
+        const target =
+            event.target;
+
+        if (
+            target &&
+            typeof target.closest ===
+                "function" &&
+            target.closest(
+                '#report-content-wrapper [contenteditable="true"]'
+            )
+        ) {
+            markReportDraftDirty();
+        }
+    }
+);
+
 function toggleAdmin(status) {
 if (!status) {
     isAdmin = false;
@@ -2476,10 +2726,16 @@ if (!status) {
     previewCategories = null;
     previewStandards = null;
 
-    currentLoadedReportId = null;
-    isReportEditMode = false;
+currentLoadedReportId = null;
+isReportEditMode = false;
 
-    clearReportDisplayToBlank();
+/*
+ * 登出／Recovery／初始化後，
+ * 防呆狀態一律恢復乾淨。
+ */
+clearWorkProtectionState();
+
+clearReportDisplayToBlank();
 }
 
             const canEdit = canEditData();
@@ -2657,6 +2913,14 @@ async function generateAIReport() {
         return showToast("請輸入欲生成的作業名稱", "error");
     }
 
+if (
+    !confirmDiscardReportDraft(
+        "重新產生 AI 程序書"
+    )
+) {
+    return;
+}    
+
     document.getElementById('loading-text').innerText = "AI 正在撰寫安全作業標準...";
     document.getElementById('loading').classList.remove('hidden');
 
@@ -2703,7 +2967,16 @@ steps 必須是 array，每一筆包含 step, desc, danger, safety, emergency。
         updateSaveBtnText();
 renderReport(result);
 setCurrentDate();
-showToast("AI 報告生成完成");
+
+/*
+ * AI 結果目前只存在畫面草稿，
+ * 尚未進入 standards 正式 Session。
+ */
+reportDraftDirty = true;
+
+showToast(
+    "AI 報告生成完成"
+);
 
     } catch (error) {
         console.error("生成錯誤：", error);
@@ -2900,14 +3173,45 @@ initIcons();
             }
         }
 
-        async function loadReport(id) {
-            if (typeof id === 'string' && id.startsWith('preview-')) {
+async function loadReport(id) {
+
+    if (
+        !confirmDiscardReportDraft(
+            "載入其他程序書"
+        )
+    ) {
+        await updateReportsDropdown();
+
+        const dropdown =
+            document.getElementById(
+                'reports-dropdown'
+            );
+
+        if (
+            dropdown &&
+            currentLoadedReportId
+        ) {
+            dropdown.value =
+                String(
+                    currentLoadedReportId
+                );
+        }
+
+        return;
+    }
+
+    if (
+        typeof id === 'string' &&
+        id.startsWith('preview-')
+    ) {
                 const index = parseInt(id.replace('preview-', ''), 10);
                 const data = previewStandards && previewStandards[index];
 
-                if (data) {
-                    currentLoadedReportId = null;
-                    updateSaveBtnText();
+if (data) {
+    currentLoadedReportId = null;
+    reportDraftDirty = false;
+
+    updateSaveBtnText();
 
                     if (data.isExternalFile) {
                         renderExternalFile(data);
@@ -2931,6 +3235,12 @@ const data =
 if (data) {
     currentLoadedReportId =
         data.id;
+
+    /*
+     * 剛載入的是既有正式 Session 資料，
+     * 尚未產生新的人工修改。
+     */
+    reportDraftDirty = false;
 
     updateSaveBtnText();
 
@@ -2971,6 +3281,28 @@ async function saveReport() {
         return showToast("目前沒有可儲存的程序書內容。", "error");
     }
 
+const hadChanges =
+    reportDraftDirty;
+
+let isNewReport =
+    !currentLoadedReportId;
+
+/*
+ * 已載入的正式程序書如果根本沒有修改，
+ * 不重新寫入 timestamp，
+ * 也不誤觸待匯出提醒。
+ */
+if (
+    !hadChanges &&
+    !isNewReport
+) {
+    showToast(
+        "目前沒有新的程序書修改。"
+    );
+
+    return;
+}    
+
             const steps = [];
             const rows = document.querySelectorAll('#steps-body tr');
             rows.forEach(row => {
@@ -2981,22 +3313,22 @@ async function saveReport() {
                     });
                 }
             });
-            const report = {
-                company: document.getElementById('company-name').innerText,
-                mainTitle: document.getElementById('report-main-title').innerText,
-                documentCode: document.getElementById('document-code').innerText,
-                type: document.getElementById('field-type').innerText,
-                method: document.getElementById('field-method').innerText,
-                name: document.getElementById('field-name').innerText.trim() || '未命名程序書',
-                tools: document.getElementById('field-tools').innerText,
-                protective: document.getElementById('field-protective').innerText,
-                footerDept: document.getElementById('footer-dept').innerText,
-                footerAuthor: document.getElementById('footer-author').innerText,
-                footerDate: document.getElementById('footer-date').innerText,
-                steps: steps, category: document.getElementById('category-select').value, timestamp: Date.now()
-            };
-let isNewReport =
-    !currentLoadedReportId;
+const report = {
+    company: document.getElementById('company-name').innerText,
+    mainTitle: document.getElementById('report-main-title').innerText,
+    documentCode: document.getElementById('document-code').innerText,
+    type: document.getElementById('field-type').innerText,
+    method: document.getElementById('field-method').innerText,
+    name: document.getElementById('field-name').innerText.trim() || '未命名程序書',
+    tools: document.getElementById('field-tools').innerText,
+    protective: document.getElementById('field-protective').innerText,
+    footerDept: document.getElementById('footer-dept').innerText,
+    footerAuthor: document.getElementById('footer-author').innerText,
+    footerDate: document.getElementById('footer-date').innerText,
+    steps: steps,
+    category: document.getElementById('category-select').value,
+    timestamp: Date.now()
+};
 
 if (currentLoadedReportId) {
     const index =
@@ -3039,6 +3371,12 @@ if (currentLoadedReportId) {
 
 updateSaveBtnText();
 
+/*
+ * 程序書已正式寫入目前 Session。
+ */
+reportDraftDirty = false;
+sessionNeedsExport = true;
+
 showToast(
     isNewReport
         ? "新程序書已收錄"
@@ -3059,7 +3397,23 @@ updateReportsDropdown();
                 return showToast("請從下拉選單選擇一份已存程序書進行移除", "error");
             }
             
-            if (!confirm("⚠️ 警告：確定要永久移除這份程序書嗎？此動作無法復原。")) return;
+            const deleteMessage =
+    reportDraftDirty
+        ? (
+            "⚠️ 警告：確定要永久移除這份程序書嗎？此動作無法復原。\n\n" +
+            "目前畫面另有尚未儲存的程序書修改，刪除後也會一併放棄。"
+        )
+        : (
+            "⚠️ 警告：確定要永久移除這份程序書嗎？此動作無法復原。"
+        );
+
+if (
+    !confirm(
+        deleteMessage
+    )
+) {
+    return;
+}
             
 standards =
     standards.filter(
@@ -3067,6 +3421,15 @@ standards =
             Number(item.id) !==
             Number(id)
     );
+
+/*
+ * 刪除直接改變正式 Session。
+ * 同時目前畫面會回到空白，
+ * 因此未儲存草稿也視為已放棄。
+ */
+reportDraftDirty = false;
+
+markSessionNeedsExport();
 
 showToast(
     "程序書已成功移除",
@@ -3148,10 +3511,28 @@ function getSettingValue(
 }
 
 async function exportDB() {
-if (!canExportData()) {
-    showToast("請先登入使用者或管理者權限後再匯出資料。", "error");
-    return;
-}
+
+    if (!canExportData()) {
+        showToast(
+            "請先登入使用者或管理者權限後再匯出資料。",
+            "error"
+        );
+
+        return;
+    }
+
+    /*
+     * 畫面仍有未按儲存的程序書時，
+     * 不允許把舊 standards 當成最新版 JSON 匯出。
+     */
+    if (hasUnsavedReportChanges()) {
+        showToast(
+            "目前程序書仍有尚未儲存的修改，請先按下「儲存／儲存修改」後再匯出 JSON。",
+            "error"
+        );
+
+        return;
+    }
 
     try {
         const standards = await getAllFromStore('standards');
@@ -3191,8 +3572,13 @@ if (!canExportData()) {
         a.download = `職安標準程序SPS_${exportDate}.json`;
         a.style.display = 'none';
 
-        document.body.appendChild(a);
-        a.click();
+document.body.appendChild(a);
+a.click();
+
+/*
+ * 最新正式 Session 已完成 JSON 匯出。
+ */
+sessionNeedsExport = false;
 
 setTimeout(() => {
     document.body.removeChild(a);
@@ -3232,9 +3618,22 @@ async function importDB(event) {
                 return;
             }
 
-            if (!confirm(`${actionLabel}將覆蓋目前所有紀錄，確定要繼續嗎？`)) {
-                return;
-            }
+const pendingWorkWarning =
+    hasPendingSessionChanges()
+        ? (
+            "\n\n目前有尚未儲存或尚未匯出的工作成果，" +
+            "繼續後將被覆蓋。"
+        )
+        : "";
+
+if (
+    !confirm(
+        `${actionLabel}將覆蓋目前所有紀錄，確定要繼續嗎？` +
+        pendingWorkWarning
+    )
+) {
+    return;
+}
 
             /*
              * 預覽者模式：
@@ -3263,6 +3662,12 @@ updateReportsDropdown();
  * 先清除畫面上先前顯示的程序書。
  */
 clearReportDisplayToBlank();
+
+/*
+ * 新載入的預覽 JSON 已經存在外部檔案，
+ * 本身不算新的工作修改。
+ */
+clearWorkProtectionState();
 
 updateDataActionButtons();
                 initIcons();
@@ -3307,19 +3712,25 @@ standards =
         }
     );
 
-if (
-    importedCategories &&
-    importedCategories.length > 0
-) {
-    categories =
-        [...importedCategories];
-}
+categories =
+    [...importedCategories];
 
 /*
  * 確保舊版本 IndexedDB
  * 不留下任何正式資料。
  */
 await clearPersistedSystemData();
+
+/*
+ * 新 JSON 已正式載入目前 Session。
+ * 清除上一份資料仍留在畫面上的程序書，
+ * 並重設防呆狀態。
+ */
+currentLoadedReportId = null;
+isReportEditMode = false;
+
+clearReportDisplayToBlank();
+clearWorkProtectionState();
 
 renderCategories();
 updateReportsDropdown();
@@ -3521,56 +3932,66 @@ function updateMobilePreviewScale() {
    確認後回到預覽者模式，完成訊息顯示於右下角
 ========================================================= */
 async function logoutSystem() {
-    /*
-     * 預覽者狀態不需要執行登出。
-     */
+
     if (!canEditData()) {
         return;
     }
 
-    /*
-     * 登出前只保留一次確認。
-     */
-    const confirmed = confirm(
-        "確定要登出目前模式嗎？"
-    );
+    if (isLoggingOut) {
+        return;
+    }
 
-    if (!confirmed) {
+    const logoutMessage =
+        hasPendingSessionChanges()
+            ? (
+                "確定要登出目前模式嗎？\n\n" +
+                "目前仍有尚未儲存或尚未匯出 JSON 的工作成果，" +
+                "登出後本次工作階段資料將清除。\n\n" +
+                "請確認已先完成儲存並匯出最新 JSON。"
+            )
+            : (
+                "確定要登出目前模式嗎？\n\n" +
+                "目前沒有尚未儲存或尚未匯出的工作變更。"
+            );
+
+    if (
+        !confirm(
+            logoutMessage
+        )
+    ) {
+        return;
+    }
+
+    isLoggingOut = true;
+
+    try {
+
+        await clearPersistedSystemData();
+
+    } catch (error) {
+
+        console.error(
+            "清除本機暫存資料失敗：",
+            error
+        );
+
+        showToast(
+            "清除本機暫存資料失敗，請重新整理後再試。",
+            "error"
+        );
+
+        isLoggingOut = false;
+
         return;
     }
 
     /*
-     * 清除管理者／使用者權限，
-     * 並執行既有的登出畫面更新流程。
+     * 已確認登出。
      */
-
-try {
-    /*
-     * 登出前確認舊版本 IndexedDB
-     * 不留下任何資料。
-     */
-    await clearPersistedSystemData();
-
-} catch (error) {
-    console.error(
-        "清除本機暫存資料失敗：",
-        error
-    );
-
-    showToast(
-        "清除本機暫存資料失敗，請重新整理後再試。",
-        "error"
-    );
-
-    return;
-}     
+    clearWorkProtectionState();
 
     toggleAdmin(false);
 
-    /*
-     * 手機版若左側功能欄仍開啟，
-     * 登出後一併收合。
-     */
     if (
         typeof toggleMobileSidebar ===
         "function"
@@ -3578,10 +3999,8 @@ try {
         toggleMobileSidebar(false);
     }
 
-    /*
-     * 完成通知不阻擋操作，
-     * 約 3 秒後自動消失。
-     */
+    isLoggingOut = false;
+
     showToast(
         "已完成登出。"
     );
