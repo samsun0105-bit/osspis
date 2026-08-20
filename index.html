@@ -936,6 +936,16 @@ main {
         -webkit-text-size-adjust: 100% !important;
         text-size-adjust: 100% !important;
     }
+
+#preview-expiry-select,
+#preview-max-views-select {
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
+}
+
 }
 
     </style>
@@ -1082,10 +1092,10 @@ main {
 </div>
 
 <div class="grid grid-cols-2 gap-2">
-    <button id="export-db-btn" onclick="exportDB()" class="db-action-btn">
-        <i data-lucide="file-output" class="w-3.5 h-3.5"></i>
-        <span class="upload">匯出資料</span>
-    </button>
+<button id="export-db-btn" onclick="openDataExportModal()" class="db-action-btn">
+    <i data-lucide="file-output" class="w-3.5 h-3.5"></i>
+    <span class="upload">匯出資料</span>
+</button>
 
     <button id="import-db-btn" onclick="triggerImportDB()" class="db-action-btn">
         <i data-lucide="file-search" class="w-3.5 h-3.5"></i>
@@ -1383,6 +1393,219 @@ main {
     </div>
 </div>
 
+<!-- 資料匯出 Modal -->
+<div id="data-export-modal"
+     onclick="closeDataExportModalOutside(event)"
+     class="fixed inset-0 modal-overlay hidden flex items-center justify-center z-[520] p-4 no-print">
+
+    <div onclick="event.stopPropagation()"
+         class="bg-white w-full max-w-sm rounded-2xl shadow-2xl scale-in-center overflow-hidden max-h-[88vh] overflow-y-auto">
+
+        <div class="p-5 relative">
+
+            <!-- 右上角關閉 -->
+            <button onclick="closeDataExportModal()"
+                    class="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition flex items-center justify-center"
+                    title="關閉">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+
+
+            <!-- 第一頁：選擇匯出用途 -->
+            <div id="data-export-choice-view">
+
+                <div class="flex flex-col items-center text-center mb-4 px-8">
+
+                    <div class="bg-indigo-50 p-2 rounded-full mb-2">
+                        <i data-lucide="file-output"
+                           class="w-6 h-6 text-indigo-600"></i>
+                    </div>
+
+                    <h2 class="text-lg font-black text-slate-800">
+                        資料匯出
+                    </h2>
+
+                    <p class="text-[10px] tracking-[0.18em] font-black text-slate-400 mt-0.5">
+                        DATA EXPORT
+                    </p>
+
+                    <p class="text-xs text-slate-500 mt-2">
+                        請選擇這份資料的使用方式
+                    </p>
+
+                </div>
+
+
+                <div class="grid grid-cols-2 gap-3">
+
+                    <!-- 正式資料 -->
+                    <button onclick="exportFormalDataFromModal()"
+                            class="min-h-[124px] rounded-xl border border-indigo-100 bg-indigo-50/60 hover:bg-indigo-50 hover:border-indigo-200 transition p-3 flex flex-col items-center justify-center text-center">
+
+                        <div class="w-9 h-9 rounded-full bg-white border border-indigo-100 flex items-center justify-center mb-2 shadow-sm">
+                            <i data-lucide="database-backup"
+                               class="w-4 h-4 text-indigo-600"></i>
+                        </div>
+
+                        <span class="text-sm font-black text-slate-800">
+                            正式資料
+                        </span>
+
+                        <span class="text-[10px] font-black text-indigo-600 mt-0.5">
+                            FORMAL DATA
+                        </span>
+
+                        <span class="text-[11px] text-slate-500 leading-snug mt-2">
+                            供管理者／使用者<br>
+                            備份與接續編輯
+                        </span>
+
+                    </button>
+
+
+                    <!-- 預覽資料 -->
+                    <button onclick="showPreviewExportSettings()"
+                            class="min-h-[124px] rounded-xl border border-sky-100 bg-sky-50/60 hover:bg-sky-50 hover:border-sky-200 transition p-3 flex flex-col items-center justify-center text-center">
+
+                        <div class="w-9 h-9 rounded-full bg-white border border-sky-100 flex items-center justify-center mb-2 shadow-sm">
+                            <i data-lucide="eye"
+                               class="w-4 h-4 text-sky-600"></i>
+                        </div>
+
+                        <span class="text-sm font-black text-slate-800">
+                            預覽資料
+                        </span>
+
+                        <span class="text-[10px] font-black text-sky-600 mt-0.5">
+                            LIMITED PREVIEW
+                        </span>
+
+                        <span class="text-[11px] text-slate-500 leading-snug mt-2">
+                            供預覽者限時查看<br>
+                            不可正式編輯
+                        </span>
+
+                    </button>
+
+                </div>
+
+
+                <p class="text-[11px] text-slate-400 leading-snug text-center mt-3">
+                    正式資料維持原有 JSON；預覽資料另設有效期限與開啟次數。
+                </p>
+
+
+                <button onclick="closeDataExportModal()"
+                        class="w-full mt-3 bg-slate-100 text-slate-600 py-2 rounded-lg font-bold hover:bg-slate-200 transition text-xs">
+                    取消
+                </button>
+
+            </div>
+
+
+            <!-- 第二頁：預覽設定 -->
+            <div id="preview-export-settings-view"
+                 class="hidden">
+
+                <div class="flex flex-col items-center text-center mb-4 px-8">
+
+                    <div class="bg-sky-50 p-2 rounded-full mb-2">
+                        <i data-lucide="timer"
+                           class="w-6 h-6 text-sky-600"></i>
+                    </div>
+
+                    <h2 class="text-lg font-black text-slate-800">
+                        預覽資料設定
+                    </h2>
+
+                    <p class="text-[10px] tracking-[0.18em] font-black text-slate-400 mt-0.5">
+                        LIMITED PREVIEW
+                    </p>
+
+                    <p class="text-xs text-slate-500 mt-2">
+                        設定有效期限與可開啟次數
+                    </p>
+
+                </div>
+
+
+                <div class="space-y-3">
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">
+                            有效期限
+                        </label>
+
+                        <select id="preview-expiry-select"
+                                class="w-full h-10 px-3 bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm font-bold text-slate-700">
+
+                            <option value="1">1 小時</option>
+                            <option value="8">8 小時</option>
+                            <option value="24" selected>24 小時</option>
+                            <option value="72">3 天</option>
+                            <option value="168">7 天</option>
+
+                        </select>
+                    </div>
+
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">
+                            可開啟次數
+                        </label>
+
+                        <select id="preview-max-views-select"
+                                class="w-full h-10 px-3 bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm font-bold text-slate-700">
+
+                            <option value="1">1 次</option>
+                            <option value="2">2 次</option>
+                            <option value="3" selected>3 次</option>
+                            <option value="5">5 次</option>
+
+                        </select>
+                    </div>
+
+
+                    <div class="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+
+                        <div class="flex items-start gap-2">
+
+                            <i data-lucide="shield-check"
+                               class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+
+                            <p class="text-[11px] leading-snug text-amber-700 font-medium">
+                                預覽檔僅供檢視，不能載入正式工作區；期限到達時，已開啟內容也會自動清除。
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="flex gap-2 pt-1">
+
+                        <button onclick="backToDataExportChoice()"
+                                class="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg font-bold hover:bg-slate-200 transition text-xs">
+                            返回
+                        </button>
+
+                        <button onclick="exportPreviewDB()"
+                                class="flex-1 bg-sky-600 text-white py-2 rounded-lg font-bold hover:bg-sky-700 transition text-xs shadow-md shadow-sky-100">
+                            匯出預覽
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
     <div id="loading" class="hidden fixed inset-0 bg-slate-950/90 flex flex-col items-center justify-center z-[200]">
         <div class="relative w-24 h-24">
             <div class="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
@@ -1522,6 +1745,28 @@ window.addEventListener(
 /* 預覽者載入 JSON 專用暫存資料，不寫入 IndexedDB */
 let previewCategories = null;
 let previewStandards = null;
+
+/*
+ * 限時／限次預覽使用紀錄。
+ *
+ * localStorage 只記錄 previewId、
+ * 已開啟次數與到期時間，
+ * 不保存正式程序書資料。
+ */
+const LIMITED_PREVIEW_STORAGE_PREFIX =
+    'osh_standard_procedure_preview_';
+
+
+/*
+ * 目前正在顯示的限時預覽 ID。
+ */
+let activeLimitedPreviewId = '';
+
+
+/*
+ * 預覽到期自動清除 Timer。
+ */
+let limitedPreviewExpiryTimer = null;
         
         // 預設分類
         function getCurrentRole() {
@@ -1661,7 +1906,7 @@ exportBtn.removeAttribute('title');
     `;
 
     importBtn.title =
-        "只載入預覽，不會寫入正式資料庫";
+        "載入限時／限次預覽 JSON";
 }
     }
 
@@ -1933,12 +2178,346 @@ function clearReportDisplayToBlank() {
     updateSaveBtnText();
 }
 
+/* =========================================================
+   限時／限次預覽 Helper
+========================================================= */
+
+/*
+ * 每重新產生一次預覽檔，
+ * 都產生全新的 previewId。
+ */
+function createLimitedPreviewId() {
+
+    const randomPart =
+        window.crypto &&
+        typeof window.crypto.randomUUID ===
+            'function'
+
+            ? window.crypto.randomUUID()
+
+            : (
+                `${Date.now()}-` +
+                Math.random()
+                    .toString(36)
+                    .slice(2, 10)
+            );
+
+
+    return (
+        'SPS-PREVIEW-' +
+        randomPart
+    );
+}
+
+
+/*
+ * 驗證預覽專用 JSON
+ * 並計算本瀏覽器使用次數。
+ */
+function validateAndConsumeLimitedPreview(
+    data
+) {
+
+    if (
+        !data ||
+        data.version !==
+            'standard-procedure-preview-json-v1' ||
+        data.exportType !==
+            'limited-preview' ||
+        data.systemType !==
+            'standard-procedure' ||
+        !Array.isArray(
+            data.categories
+        ) ||
+        !Array.isArray(
+            data.standards
+        )
+    ) {
+
+        return {
+            ok: false,
+
+            message:
+                '此檔案不是本系統產生的預覽專用 JSON。\n\n' +
+                '請使用「匯出資料 → 預覽資料」產生的檔案。'
+        };
+    }
+
+
+    const previewId =
+        String(
+            data.previewId || ''
+        ).trim();
+
+
+    const expiresAtMs =
+        new Date(
+            data.expiresAt
+        ).getTime();
+
+
+    const maxViews =
+        Number(
+            data.maxViews
+        );
+
+
+    if (
+        !previewId ||
+        !Number.isFinite(
+            expiresAtMs
+        ) ||
+        !Number.isInteger(
+            maxViews
+        ) ||
+        maxViews < 1
+    ) {
+
+        return {
+            ok: false,
+
+            message:
+                '預覽檔的限制設定不完整，無法開啟。'
+        };
+    }
+
+
+    /*
+     * 已超過有效期限。
+     */
+    if (
+        Date.now() >=
+        expiresAtMs
+    ) {
+
+        return {
+            ok: false,
+
+            message:
+                '此預覽資料已超過有效期限。\n\n' +
+                '如需再次查看，請重新向資料提供者索取新的預覽檔。'
+        };
+    }
+
+
+    const storageKey =
+        LIMITED_PREVIEW_STORAGE_PREFIX +
+        previewId;
+
+
+    let usage = {
+        count: 0,
+        expiresAt:
+            data.expiresAt
+    };
+
+
+    try {
+
+        const stored =
+            localStorage.getItem(
+                storageKey
+            );
+
+
+        if (stored) {
+
+            const parsed =
+                JSON.parse(
+                    stored
+                );
+
+
+            usage.count =
+                Math.max(
+                    Number(
+                        parsed.count ||
+                        0
+                    ),
+                    0
+                );
+        }
+
+
+        if (
+            usage.count >=
+            maxViews
+        ) {
+
+            return {
+                ok: false,
+
+                message:
+                    '此預覽資料已達可開啟次數上限。\n\n' +
+                    '如需再次查看，請重新向資料提供者索取新的預覽檔。'
+            };
+        }
+
+
+        /*
+         * 成功使用一次。
+         */
+        usage.count += 1;
+
+        usage.expiresAt =
+            data.expiresAt;
+
+
+        localStorage.setItem(
+            storageKey,
+            JSON.stringify(
+                usage
+            )
+        );
+
+
+    } catch (error) {
+
+        console.warn(
+            '預覽使用紀錄存取失敗：',
+            error
+        );
+
+
+        return {
+            ok: false,
+
+            message:
+                '瀏覽器目前無法建立預覽使用紀錄。\n\n' +
+                '為避免預覽限制失效，本次資料不予開啟。'
+        };
+    }
+
+
+    return {
+        ok: true,
+
+        previewId,
+
+        usedCount:
+            usage.count,
+
+        maxViews,
+
+        expiresAtMs
+    };
+}
+
+
+/*
+ * 停止目前到期 Timer。
+ */
+function clearLimitedPreviewRuntimeState() {
+
+    if (
+        limitedPreviewExpiryTimer
+    ) {
+
+        clearTimeout(
+            limitedPreviewExpiryTimer
+        );
+    }
+
+
+    limitedPreviewExpiryTimer =
+        null;
+
+
+    activeLimitedPreviewId =
+        '';
+}
+
+
+/*
+ * Viewer 成功載入預覽後啟動。
+ */
+function startLimitedPreviewExpiryTimer(
+    data
+) {
+
+    clearLimitedPreviewRuntimeState();
+
+
+    const expiresAtMs =
+        new Date(
+            data.expiresAt
+        ).getTime();
+
+
+    if (
+        !Number.isFinite(
+            expiresAtMs
+        )
+    ) {
+        return;
+    }
+
+
+    activeLimitedPreviewId =
+        String(
+            data.previewId ||
+            ''
+        );
+
+
+    const remaining =
+        expiresAtMs -
+        Date.now();
+
+
+    if (
+        remaining <= 0
+    ) {
+
+        expireCurrentLimitedPreview();
+
+        return;
+    }
+
+
+    limitedPreviewExpiryTimer =
+        setTimeout(
+            expireCurrentLimitedPreview,
+            remaining
+        );
+}
+
+
+/*
+ * 已經開著預覽時，
+ * 期限到達也自動清空畫面。
+ */
+function expireCurrentLimitedPreview() {
+
+    if (
+        !isPreviewDataActive() ||
+        !activeLimitedPreviewId
+    ) {
+
+        clearLimitedPreviewRuntimeState();
+
+        return;
+    }
+
+
+    clearViewerWorkingData();
+
+
+    alert(
+        '此預覽資料已超過有效期限。\n\n' +
+        '目前預覽內容已自動關閉。\n' +
+        '如需再次查看，請重新向資料提供者索取新的預覽檔。'
+    );
+}
 
 /* =========================================================
    清除預覽者目前工作資料
    預覽資料只存在目前頁面記憶體
 ========================================================= */
 function clearViewerWorkingData() {
+
+    clearLimitedPreviewRuntimeState();
+
     previewCategories = null;
     previewStandards = null;
 
@@ -3510,6 +4089,439 @@ function getSettingValue(
     );
 }
 
+/* =========================================================
+   資料匯出 Modal
+========================================================= */
+
+function resetDataExportModal() {
+
+    const choiceView =
+        document.getElementById(
+            'data-export-choice-view'
+        );
+
+
+    const settingsView =
+        document.getElementById(
+            'preview-export-settings-view'
+        );
+
+
+    if (choiceView) {
+        choiceView.classList.remove(
+            'hidden'
+        );
+    }
+
+
+    if (settingsView) {
+        settingsView.classList.add(
+            'hidden'
+        );
+    }
+
+
+    const expirySelect =
+        document.getElementById(
+            'preview-expiry-select'
+        );
+
+
+    const maxViewsSelect =
+        document.getElementById(
+            'preview-max-views-select'
+        );
+
+
+    if (expirySelect) {
+        expirySelect.value =
+            '24';
+    }
+
+
+    if (maxViewsSelect) {
+        maxViewsSelect.value =
+            '3';
+    }
+}
+
+
+function openDataExportModal() {
+
+    if (
+        !canExportData()
+    ) {
+
+        showToast(
+            '請先登入使用者或管理者權限後再匯出資料。',
+            'error'
+        );
+
+
+        openLoginModal();
+
+        return;
+    }
+
+
+    /*
+     * 手機版從側欄進來時，
+     * 先把側欄收起。
+     */
+    toggleMobileSidebar(
+        false
+    );
+
+
+    resetDataExportModal();
+
+
+    document
+        .getElementById(
+            'data-export-modal'
+        )
+        ?.classList
+        .remove(
+            'hidden'
+        );
+
+
+    initIcons();
+}
+
+
+function closeDataExportModal() {
+
+    document
+        .getElementById(
+            'data-export-modal'
+        )
+        ?.classList
+        .add(
+            'hidden'
+        );
+
+
+    resetDataExportModal();
+}
+
+
+function closeDataExportModalOutside(
+    event
+) {
+
+    if (
+        event.target ===
+        event.currentTarget
+    ) {
+
+        closeDataExportModal();
+    }
+}
+
+
+function showPreviewExportSettings() {
+
+    document
+        .getElementById(
+            'data-export-choice-view'
+        )
+        ?.classList
+        .add(
+            'hidden'
+        );
+
+
+    document
+        .getElementById(
+            'preview-export-settings-view'
+        )
+        ?.classList
+        .remove(
+            'hidden'
+        );
+
+
+    initIcons();
+}
+
+
+function backToDataExportChoice() {
+
+    document
+        .getElementById(
+            'preview-export-settings-view'
+        )
+        ?.classList
+        .add(
+            'hidden'
+        );
+
+
+    document
+        .getElementById(
+            'data-export-choice-view'
+        )
+        ?.classList
+        .remove(
+            'hidden'
+        );
+
+
+    initIcons();
+}
+
+
+/*
+ * 正式資料完全沿用原本 exportDB()。
+ */
+function exportFormalDataFromModal() {
+
+    closeDataExportModal();
+
+    exportDB();
+}
+
+
+/*
+ * 匯出限時／限次預覽 JSON。
+ */
+async function exportPreviewDB() {
+
+    if (
+        !canExportData()
+    ) {
+
+        closeDataExportModal();
+
+
+        showToast(
+            '請先登入使用者或管理者權限後再匯出資料。',
+            'error'
+        );
+
+
+        openLoginModal();
+
+        return;
+    }
+
+
+    /*
+     * 尚未按儲存時，
+     * 不允許把舊 standards 當成最新版預覽檔。
+     */
+    if (
+        hasUnsavedReportChanges()
+    ) {
+
+        closeDataExportModal();
+
+
+        showToast(
+            '目前程序書仍有尚未儲存的修改，請先按下「儲存／儲存修改」後再產生預覽資料。',
+            'error'
+        );
+
+
+        return;
+    }
+
+
+    try {
+
+        /*
+         * 完全沿用既有正式 Session 資料來源。
+         */
+        const exportedStandards =
+            await getAllFromStore(
+                'standards'
+            );
+
+
+        const savedCategories =
+            await getSettingValue(
+                'categories',
+                categories
+            );
+
+
+        const expiryHours =
+            Number(
+                document
+                    .getElementById(
+                        'preview-expiry-select'
+                    )
+                    ?.value ||
+                24
+            );
+
+
+        const maxViews =
+            Number(
+                document
+                    .getElementById(
+                        'preview-max-views-select'
+                    )
+                    ?.value ||
+                3
+            );
+
+
+        const createdAtMs =
+            Date.now();
+
+
+        const expiresAtMs =
+            createdAtMs +
+            expiryHours *
+            60 *
+            60 *
+            1000;
+
+
+        const exportDate =
+            new Date()
+                .toISOString()
+                .split('T')[0];
+
+
+        const previewData = {
+
+            version:
+                'standard-procedure-preview-json-v1',
+
+            exportType:
+                'limited-preview',
+
+            systemType:
+                'standard-procedure',
+
+            previewId:
+                createLimitedPreviewId(),
+
+            createdAt:
+                new Date(
+                    createdAtMs
+                ).toISOString(),
+
+            expiresAt:
+                new Date(
+                    expiresAtMs
+                ).toISOString(),
+
+            maxViews,
+
+            categories:
+                savedCategories ||
+                categories,
+
+            standards:
+                exportedStandards ||
+                []
+        };
+
+
+        const blob =
+            new Blob(
+                [
+                    JSON.stringify(
+                        previewData,
+                        null,
+                        2
+                    )
+                ],
+                {
+                    type:
+                        'application/json'
+                }
+            );
+
+
+        const url =
+            URL.createObjectURL(
+                blob
+            );
+
+
+        const a =
+            document.createElement(
+                'a'
+            );
+
+
+        a.href =
+            url;
+
+
+        a.download =
+            `職安標準程序SPS_預覽_${exportDate}.json`;
+
+
+        a.style.display =
+            'none';
+
+
+        document.body.appendChild(
+            a
+        );
+
+
+        a.click();
+
+
+        setTimeout(
+            () => {
+
+                document.body.removeChild(
+                    a
+                );
+
+
+                URL.revokeObjectURL(
+                    url
+                );
+
+            },
+            0
+        );
+
+
+        /*
+         * 很重要：
+         *
+         * 預覽匯出不代表正式 JSON
+         * 已經完成備份。
+         *
+         * 所以這裡不能設定：
+         * sessionNeedsExport = false
+         */
+
+
+        closeDataExportModal();
+
+
+        alert(
+            '預覽資料已匯出。\n\n' +
+            `有效期限：${expiryHours} 小時\n` +
+            `可開啟次數：${maxViews} 次`
+        );
+
+
+    } catch (err) {
+
+        console.error(
+            '匯出預覽資料失敗：',
+            err
+        );
+
+
+        alert(
+            '匯出預覽資料失敗，請重新整理後再試一次。'
+        );
+    }
+}
+
 async function exportDB() {
 
     if (!canExportData()) {
@@ -3591,165 +4603,364 @@ setTimeout(() => {
     }
 }
 
-async function importDB(event) {
-    const file = event.target.files[0];
+async function importDB(
+    event
+) {
+
+    const file =
+        event.target.files[0];
+
+
     if (!file) return;
 
-    const actionLabel = isAdmin
-        ? "匯入資料"
-        : (isEditor ? "載入資料" : "載入預覽");
 
-    const reader = new FileReader();
+    const reader =
+        new FileReader();
 
-    reader.onload = async (e) => {
-        try {
-            const parsed = JSON.parse(e.target.result);
 
-            const importedStandards = Array.isArray(parsed)
-                ? parsed
-                : (parsed.standards || []);
+    reader.onload =
+        async e => {
 
-            const importedCategories = Array.isArray(parsed.categories)
-                ? parsed.categories
-                : Array.from(new Set(importedStandards.map(item => item.category).filter(Boolean)));
+            try {
 
-            if (!Array.isArray(importedStandards)) {
-                alert("載入失敗：這不是有效的系統 JSON 資料檔。");
-                return;
-            }
+                const parsed =
+                    JSON.parse(
+                        e.target.result
+                    );
 
-const pendingWorkWarning =
-    hasPendingSessionChanges()
-        ? (
-            "\n\n目前有尚未儲存或尚未匯出的工作成果，" +
-            "繼續後將被覆蓋。"
-        )
-        : "";
 
-if (
-    !confirm(
-        `${actionLabel}將覆蓋目前所有紀錄，確定要繼續嗎？` +
-        pendingWorkWarning
-    )
-) {
-    return;
-}
+                /* =====================================================
+                   Viewer：只接受預覽專用 JSON
+                ===================================================== */
+                if (
+                    !canImportData()
+                ) {
 
-            /*
-             * 預覽者模式：
-             * 只更新目前頁面變數，不寫入 IndexedDB。
-             * 重新整理或關閉頁面後，資料不會保留。
-             */
-            if (!canImportData()) {
-                previewCategories = importedCategories;
-                previewStandards = importedStandards.map((item, index) => ({
-                    ...item,
-                    previewIndex: index
-                }));
+                    const previewCheck =
+                        validateAndConsumeLimitedPreview(
+                            parsed
+                        );
 
-                currentLoadedReportId = null;
+
+                    if (
+                        !previewCheck.ok
+                    ) {
+
+                        alert(
+                            previewCheck.message
+                        );
+
+                        return;
+                    }
+
+
+                    previewCategories =
+                        [
+                            ...parsed.categories
+                        ];
+
+
+                    previewStandards =
+                        parsed.standards.map(
+                            (
+                                item,
+                                index
+                            ) => ({
+                                ...item,
+                                previewIndex:
+                                    index
+                            })
+                        );
+
+
+                    currentLoadedReportId =
+                        null;
+
+
+                    isReportEditMode =
+                        false;
+
+
+                    renderCategories();
+
+
+                    if (
+                        previewCategories.length >
+                        0
+                    ) {
+
+                        document
+                            .getElementById(
+                                'category-select'
+                            )
+                            .value =
+                            previewCategories[0];
+                    }
+
+
+                    updateReportsDropdown();
+
+
+                    /*
+                     * 清除先前畫面顯示的程序書。
+                     */
+                    clearReportDisplayToBlank();
+
+
+                    /*
+                     * 外部預覽 JSON 本身
+                     * 不算新的人工修改。
+                     */
+                    clearWorkProtectionState();
+
+
+                    /*
+                     * 啟動到期自動清除。
+                     */
+                    startLimitedPreviewExpiryTimer(
+                        parsed
+                    );
+
+
+                    updateDataActionButtons();
+
+                    initIcons();
+
+
+                    alert(
+                        `預覽資料載入成功！\n\n` +
+                        `已使用 ${previewCheck.usedCount} / ${previewCheck.maxViews} 次`
+                    );
+
+
+                    return;
+                }
+
+
+                /* =====================================================
+                   User / Admin：
+                   預覽 JSON 不准進正式工作區
+                ===================================================== */
+                if (
+                    parsed &&
+                    parsed.exportType ===
+                        'limited-preview'
+                ) {
+
+                    alert(
+                        '此檔案為預覽專用資料，不能載入正式工作區。\n\n' +
+                        '如需接續編輯，請使用正式「匯出資料」所產生的 JSON。'
+                    );
+
+
+                    return;
+                }
+
+
+                /*
+                 * 正式資料仍保留舊格式相容性。
+                 */
+                const importedStandards =
+                    Array.isArray(
+                        parsed
+                    )
+
+                        ? parsed
+
+                        : (
+                            parsed.standards ||
+                            []
+                        );
+
+
+                const importedCategories =
+                    Array.isArray(
+                        parsed.categories
+                    )
+
+                        ? parsed.categories
+
+                        : Array.from(
+                            new Set(
+                                importedStandards
+                                    .map(
+                                        item =>
+                                            item.category
+                                    )
+                                    .filter(
+                                        Boolean
+                                    )
+                            )
+                        );
+
+
+                if (
+                    !Array.isArray(
+                        importedStandards
+                    )
+                ) {
+
+                    alert(
+                        '載入失敗：這不是有效的系統 JSON 資料檔。'
+                    );
+
+
+                    return;
+                }
+
+
+                const actionLabel =
+                    isAdmin
+                        ? '匯入資料'
+                        : '載入資料';
+
+
+                const pendingWorkWarning =
+                    hasPendingSessionChanges()
+
+                        ? (
+                            '\n\n目前有尚未儲存或尚未匯出的工作成果，' +
+                            '繼續後將被覆蓋。'
+                        )
+
+                        : '';
+
+
+                if (
+                    !confirm(
+                        `${actionLabel}將覆蓋目前所有紀錄，確定要繼續嗎？` +
+                        pendingWorkWarning
+                    )
+                ) {
+
+                    return;
+                }
+
+
+                /*
+                 * 正式載入前清掉任何預覽狀態。
+                 */
+                previewCategories =
+                    null;
+
+
+                previewStandards =
+                    null;
+
+
+                clearLimitedPreviewRuntimeState();
+
+
+                /*
+                 * 比照原本 IndexedDB autoIncrement，
+                 * 每次正式載入重建本次 Session ID。
+                 */
+                standards =
+                    importedStandards.map(
+                        (
+                            item,
+                            index
+                        ) => {
+
+                            const cleanItem = {
+                                ...item
+                            };
+
+
+                            delete cleanItem.id;
+
+                            delete cleanItem.previewIndex;
+
+
+                            /*
+                             * 永遠不處理密碼與權限。
+                             */
+                            delete cleanItem.adminPassword;
+
+                            delete cleanItem.editorPassword;
+
+                            delete cleanItem.editorEnabled;
+
+
+                            return {
+                                ...cleanItem,
+
+                                id:
+                                    index +
+                                    1
+                            };
+                        }
+                    );
+
+
+                categories =
+                    [
+                        ...importedCategories
+                    ];
+
+
+                /*
+                 * 清除舊版 IndexedDB 正式殘留。
+                 */
+                await clearPersistedSystemData();
+
+
+                currentLoadedReportId =
+                    null;
+
+
+                isReportEditMode =
+                    false;
+
+
+                clearReportDisplayToBlank();
+
+
+                /*
+                 * 剛載入的正式 JSON
+                 * 本身就是外部已存在資料。
+                 */
+                clearWorkProtectionState();
+
 
                 renderCategories();
 
-                if (previewCategories.length > 0) {
-                    document.getElementById('category-select').value = previewCategories[0];
-                }
+                updateReportsDropdown();
 
-updateReportsDropdown();
+                updateDataActionButtons();
 
-/*
- * 預覽資料載入後，
- * 先清除畫面上先前顯示的程序書。
- */
-clearReportDisplayToBlank();
-
-/*
- * 新載入的預覽 JSON 已經存在外部檔案，
- * 本身不算新的工作修改。
- */
-clearWorkProtectionState();
-
-updateDataActionButtons();
                 initIcons();
 
-                alert("預覽資料載入成功！");
-                return;
+
+                alert(
+                    `${actionLabel}成功！`
+                );
+
+
+            } catch (err) {
+
+                console.error(
+                    '載入資料失敗：',
+                    err
+                );
+
+
+                alert(
+                    '載入失敗：檔案格式不正確或內容已損毀。'
+                );
+
+
+            } finally {
+
+                event.target.value =
+                    '';
             }
+        };
 
-/*
- * 使用者 / 管理者模式：
- * 正式載入到目前工作階段記憶體。
- * 不永久寫入 IndexedDB。
- */
-previewCategories = null;
-previewStandards = null;
 
-/*
- * 比照舊版 IndexedDB autoIncrement，
- * 每次正式載入重新建立本次工作階段 ID。
- */
-standards =
-    importedStandards.map(
-        (item, index) => {
-            const cleanItem = {
-                ...item
-            };
-
-            delete cleanItem.id;
-            delete cleanItem.previewIndex;
-
-            /*
-             * 永遠不處理密碼與權限設定。
-             */
-            delete cleanItem.adminPassword;
-            delete cleanItem.editorPassword;
-            delete cleanItem.editorEnabled;
-
-            return {
-                ...cleanItem,
-                id: index + 1
-            };
-        }
+    reader.readAsText(
+        file
     );
-
-categories =
-    [...importedCategories];
-
-/*
- * 確保舊版本 IndexedDB
- * 不留下任何正式資料。
- */
-await clearPersistedSystemData();
-
-/*
- * 新 JSON 已正式載入目前 Session。
- * 清除上一份資料仍留在畫面上的程序書，
- * 並重設防呆狀態。
- */
-currentLoadedReportId = null;
-isReportEditMode = false;
-
-clearReportDisplayToBlank();
-clearWorkProtectionState();
-
-renderCategories();
-updateReportsDropdown();
-updateDataActionButtons();
-initIcons();
-
-alert(
-    `${actionLabel}成功！`
-);
-
-        } catch (err) {
-            console.error("載入資料失敗：", err);
-            alert("載入失敗：檔案格式不正確或內容已損毀。");
-        } finally {
-            event.target.value = '';
-        }
-    };
-
-    reader.readAsText(file);
 }
 
 async function downloadPDF() {
@@ -4026,12 +5237,31 @@ document.getElementById(
     openLoginModal();
 };
         document.getElementById('save-report-btn').onclick = saveReport;
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') {
-        toggleModal('login-modal', false);
-        toggleModal('password-modal', false);
+document.addEventListener(
+    'keydown',
+    function(event) {
+
+        if (
+            event.key ===
+            'Escape'
+        ) {
+
+            toggleModal(
+                'login-modal',
+                false
+            );
+
+
+            toggleModal(
+                'password-modal',
+                false
+            );
+
+
+            closeDataExportModal();
+        }
     }
-});
+);
 window.addEventListener('load', () => {
     initDB().then(() => {
         toggleAdmin(false);
