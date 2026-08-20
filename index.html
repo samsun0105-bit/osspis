@@ -1491,7 +1491,7 @@ main {
 
 
                 <p class="text-[11px] text-slate-400 leading-snug text-center mt-3">
-                    正式資料維持原有 JSON；預覽資料另設有效期限與開啟次數。
+                    正式資料維持原有檔案格式；預覽資料另設有效期限與開啟次數。
                 </p>
 
 
@@ -1906,7 +1906,7 @@ exportBtn.removeAttribute('title');
     `;
 
     importBtn.title =
-        "載入限時／限次預覽 JSON";
+        "載入限時／限次預覽檔案";
 }
     }
 
@@ -2238,8 +2238,7 @@ function validateAndConsumeLimitedPreview(
             ok: false,
 
             message:
-                '此檔案不是本系統產生的預覽專用 JSON。\n\n' +
-                '請使用「匯出資料 → 預覽資料」產生的檔案。'
+'此檔案不是本系統產生的預覽專用檔案。'
         };
     }
 
@@ -4539,7 +4538,7 @@ async function exportDB() {
      */
     if (hasUnsavedReportChanges()) {
         showToast(
-            "目前程序書仍有尚未儲存的修改，請先按下「儲存／儲存修改」後再匯出 JSON。",
+            "目前程序書仍有尚未儲存的修改，請先按下「儲存／儲存修改」後再匯出資料檔案。",
             "error"
         );
 
@@ -4749,7 +4748,7 @@ async function importDB(
 
                     alert(
                         '此檔案為預覽專用資料，不能載入正式工作區。\n\n' +
-                        '如需接續編輯，請使用正式「匯出資料」所產生的 JSON。'
+                        '如需接續編輯，請使用正式「匯出資料」所產生的檔案。'
                     );
 
 
@@ -4801,7 +4800,7 @@ async function importDB(
                 ) {
 
                     alert(
-                        '載入失敗：這不是有效的系統 JSON 資料檔。'
+                        '載入失敗：這不是有效的系統資料檔案。'
                     );
 
 
@@ -5155,10 +5154,10 @@ async function logoutSystem() {
     const logoutMessage =
         hasPendingSessionChanges()
             ? (
-                "確定要登出目前模式嗎？\n\n" +
-                "目前仍有尚未儲存或尚未匯出 JSON 的工作成果，" +
-                "登出後本次工作階段資料將清除。\n\n" +
-                "請確認已先完成儲存並匯出最新 JSON。"
+"確定要登出目前模式嗎？\n\n" +
+"目前仍有尚未儲存或尚未匯出資料檔案的工作成果，" +
+"登出後本次工作階段資料將清除。\n\n" +
+"請確認已先完成儲存並匯出最新資料檔案。"
             )
             : (
                 "確定要登出目前模式嗎？\n\n" +
