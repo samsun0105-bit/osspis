@@ -3,13 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>職業安全標準程序系統</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+<title>職業安全標準程序系統</title>
+
+<!-- 外部 CDN：提前建立連線 -->
+<link
+    rel="preconnect"
+    href="https://cdnjs.cloudflare.com"
+    crossorigin
+>
+
+<!-- Font Awesome：優先載入 Solid 圖示字型 -->
+<link
+    rel="preload"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2"
+    as="font"
+    type="font/woff2"
+    crossorigin
+>
+
+<!-- Font Awesome Icons -->
+<link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    rel="stylesheet"
+>
+
+<script>
+(function () {
+
+    function showStandardProcedureActions() {
+        document.documentElement.classList.add(
+            'fa-icons-ready'
+        );
+    }
+
+    if (
+        document.fonts &&
+        document.fonts.load
+    ) {
+
+        document.fonts
+            .load(
+                '900 1em "Font Awesome 6 Free"'
+            )
+            .then(
+                showStandardProcedureActions
+            )
+            .catch(
+                showStandardProcedureActions
+            );
+
+        /*
+         * 防呆：
+         * 即使 Font CDN 或 Font API 發生異常，
+         * 最多等待 1.5 秒仍顯示左側功能區。
+         */
+        setTimeout(
+            showStandardProcedureActions,
+            1500
+        );
+
+    } else {
+
+        window.addEventListener(
+            'load',
+            showStandardProcedureActions,
+            { once: true }
+        );
+    }
+
+})();
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Noto+Sans+TC:wght@300;400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
         
         :root {
             --primary: #2563eb;
@@ -21,6 +91,33 @@
             background-color: #0f172a;
             color: #e2e8f0;
         }
+
+/* =========================================================
+   權限登入視窗
+   字型完全比照法規鑑別系統
+========================================================= */
+#login-modal,
+#login-modal input,
+#login-modal button {
+    font-family:
+        'Noto Sans TC',
+        sans-serif;
+} 
+
+/* =========================================================
+   左側權限／資料功能區首次顯示最佳化
+
+   Font Awesome 尚未完成載入前，
+   先保留原本版面位置但暫不顯示，
+   等圖示字型完成後一次完整顯示。
+========================================================= */
+#user-controls {
+    visibility: hidden;
+}
+
+html.fa-icons-ready #user-controls {
+    visibility: visible;
+}
 
         /* 自定義左側滾動條樣式 */
         .custom-scrollbar::-webkit-scrollbar {
@@ -55,20 +152,49 @@
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* 比照證照管理系統：資料匯出 / 載入 / 匯入按鈕 */
+/* =========================================================
+   左側資料操作按鈕
+
+   外型、字體、圖示比例比照法規系統；
+   原本標準程序系統的按鈕顏色保持不變。
+========================================================= */
 .db-action-btn {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: #94a3b8;
+
     padding: 8px 12px;
-    border-radius: 10px;
+    border-radius: 12px;
+
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 900;
+
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    transition: all 0.2s;
+    gap: 8px;
+
+    box-shadow:
+        0 4px 6px -1px
+        rgba(15, 23, 42, 0.18);
+
+    transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
+}
+
+.db-action-btn i {
+    flex: 0 0 auto;
+    line-height: 1;
+}
+
+@media screen and (max-width: 639px) {
+    .db-action-btn {
+        font-size: 11px;
+    }
 }
 
 .auth-action-row {
@@ -143,6 +269,110 @@
     border-color: rgba(255, 255, 255, 0.2);
 }
 
+/* =========================================================
+   全系統統一 Tooltip
+
+   外觀與法規鑑別系統一致：
+   深黑藍背景、白字、10px、700、6px 圓角。
+   僅桌機滑鼠裝置顯示。
+========================================================= */
+.system-tooltip-btn {
+    position:
+        relative;
+}
+
+/*
+ * 避免原本 absolute 定位的 Modal 關閉鈕
+ * 被 position: relative 覆蓋。
+ */
+.system-tooltip-btn.absolute {
+    position:
+        absolute;
+}
+
+@media (hover: hover) and (pointer: fine) {
+
+    .system-tooltip-btn::after {
+        content:
+            attr(data-tooltip);
+
+        position:
+            absolute;
+
+        z-index:
+            200;
+
+        left:
+            50%;
+
+        top:
+            calc(100% + 6px);
+
+        transform:
+            translateX(-50%)
+            translateY(-2px);
+
+        padding:
+            4px 7px;
+
+        border-radius:
+            6px;
+
+        background:
+            rgba(15, 23, 42, 0.94);
+
+        color:
+            #ffffff;
+
+        font-family:
+            'Noto Sans TC',
+            sans-serif;
+
+        font-size:
+            10px;
+
+        font-weight:
+            700;
+
+        line-height:
+            1.2;
+
+        white-space:
+            nowrap;
+
+        opacity:
+            0;
+
+        visibility:
+            hidden;
+
+        pointer-events:
+            none;
+
+        transition:
+            opacity 0.14s ease,
+            transform 0.14s ease,
+            visibility 0.14s ease;
+
+        box-shadow:
+            0 6px 16px
+            rgba(15, 23, 42, 0.18);
+    }
+
+
+    .system-tooltip-btn:hover::after {
+        opacity:
+            1;
+
+        visibility:
+            visible;
+
+        transform:
+            translateX(-50%)
+            translateY(0);
+    }
+}
+
 .action-locked {
     opacity: 0.52;
     filter: grayscale(0.18);
@@ -214,17 +444,54 @@
     transform: translateY(-1px);
 }
 
-/* 報表編輯切換按鈕：與權限狀態列分色，提升白底文件上方辨識度 */
+/* =========================================================
+   上方 PDF／列印／編輯按鈕
+
+   外型比照左側匯入資料按鈕；
+   各按鈕原本顏色維持不變。
+========================================================= */
+.top-data-action-btn,
 .report-edit-btn {
-    min-width: 74px;
-    padding: 8px 15px;
-    border-radius: 999px;
+    padding: 8px 12px;
+    border-radius: 12px;
+
     font-size: 12px;
     font-weight: 900;
+    line-height: 1.2;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    box-shadow:
+        0 4px 6px -1px
+        rgba(15, 23, 42, 0.18);
+
+    transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
+}
+
+.report-edit-btn {
+    min-width: 74px;
     letter-spacing: 0.08em;
-    backdrop-filter: blur(14px);
-    transition: all 0.18s ease;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.24);
+}
+
+/* PDF／列印按鈕稍微放大 */
+.top-data-action-btn {
+    padding: 9px 15px;
+    font-size: 13px;
+    min-height: 40px;
+}
+
+.top-data-action-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
 }
 
 .report-edit-btn.is-view {
@@ -780,7 +1047,7 @@ main {
     padding-left: 10px;
     padding-right: 10px;
     font-size: 11px;
-    border-radius: 999px;
+    border-radius: 12px;
 }
 
 @media screen and (max-width: 390px) {
@@ -1022,13 +1289,27 @@ main {
                             <button onclick="editCategory()" class="text-amber-500 hover:text-amber-400" title="修改分類名稱">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                             </button>
-<button id="category-delete-btn"
-        onclick="removeCategory()"
-        class="sidebar-icon-btn text-red-400 hover:text-red-300"
-        title="刪除分類">
-    <span class="attachment-symbol attachment-trash-symbol">
-        <i data-lucide="trash-2"></i>
-    </span>
+<button
+    id="category-delete-btn"
+    onclick="removeCategory()"
+    class="sidebar-icon-btn text-red-500 hover:text-red-600"
+    title="刪除分類"
+>
+    <svg
+        viewBox="0 0 24 24"
+        class="w-[17px] h-[17px]"
+        aria-hidden="true"
+    >
+        <path
+            fill="currentColor"
+            d="M9 3.5h6l.8 1.7H20a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2h4.2L9 3.5Z"
+        ></path>
+
+        <path
+            fill="currentColor"
+            d="M6.2 8.7h11.6l-.8 10.1A2.5 2.5 0 0 1 14.5 21h-5a2.5 2.5 0 0 1-2.5-2.2L6.2 8.7Zm3.2 2.2a.8.8 0 0 0-.8.8l.3 5.6a.8.8 0 0 0 1.6-.1l-.3-5.6a.8.8 0 0 0-.8-.7Zm5.2 0a.8.8 0 0 0-.8.7l-.3 5.6a.8.8 0 1 0 1.6.1l.3-5.6a.8.8 0 0 0-.8-.8Z"
+        ></path>
+    </svg>
 </button>
                         </div>
                     </div>
@@ -1049,14 +1330,28 @@ main {
         <option value="">-- 請先選擇分類 --</option>
     </select>
 
-    <button id="admin-delete-btn"
-            onclick="deleteSelectedReport()"
-            class="hidden sidebar-icon-btn text-red-400 hover:text-red-300"
-            title="移除此份程序書">
-        <span class="attachment-symbol attachment-trash-symbol">
-            <i data-lucide="trash-2"></i>
-        </span>
-    </button>
+<button
+    id="admin-delete-btn"
+    onclick="deleteSelectedReport()"
+    class="hidden sidebar-icon-btn text-red-500 hover:text-red-600"
+    title="移除此份程序書"
+>
+    <svg
+        viewBox="0 0 24 24"
+        class="w-[17px] h-[17px]"
+        aria-hidden="true"
+    >
+        <path
+            fill="currentColor"
+            d="M9 3.5h6l.8 1.7H20a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2h4.2L9 3.5Z"
+        ></path>
+
+        <path
+            fill="currentColor"
+            d="M6.2 8.7h11.6l-.8 10.1A2.5 2.5 0 0 1 14.5 21h-5a2.5 2.5 0 0 1-2.5-2.2L6.2 8.7Zm3.2 2.2a.8.8 0 0 0-.8.8l.3 5.6a.8.8 0 0 0 1.6-.1l-.3-5.6a.8.8 0 0 0-.8-.7Zm5.2 0a.8.8 0 0 0-.8.7l-.3 5.6a.8.8 0 1 0 1.6.1l.3-5.6a.8.8 0 0 0-.8-.8Z"
+        ></path>
+    </svg>
+</button>
 </div>
                 </div>
 
@@ -1066,13 +1361,10 @@ main {
 
                     <div id="user-controls" class="space-y-4">
 <div class="auth-action-row">
-    <button id="login-trigger" class="auth-action-btn auth-login-btn">
-        <svg id="login-trigger-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-        </svg>
-        <span id="login-trigger-text">權限登入</span>
-    </button>
+<button id="login-trigger" class="auth-action-btn auth-login-btn">
+    <i id="login-trigger-icon" class="fas fa-lock"></i>
+    <span id="login-trigger-text">權限登入</span>
+</button>
 
     <button id="permission-settings-btn"
             onclick="toggleModal('password-modal', true)"
@@ -1092,15 +1384,27 @@ main {
 </div>
 
 <div class="grid grid-cols-2 gap-2">
-<button id="export-db-btn" onclick="openDataExportModal()" class="db-action-btn">
-    <i data-lucide="file-output" class="w-3.5 h-3.5"></i>
-    <span class="upload">匯出資料</span>
+<button id="export-db-btn"
+        onclick="openDataExportModal()"
+        class="db-action-btn">
+
+    <i class="fas fa-share-nodes"></i>
+
+    <span class="upload">
+        匯出資料
+    </span>
 </button>
 
-    <button id="import-db-btn" onclick="triggerImportDB()" class="db-action-btn">
-        <i data-lucide="file-search" class="w-3.5 h-3.5"></i>
-        <span class="download">載入預覽</span>
-    </button>
+<button id="import-db-btn"
+        onclick="triggerImportDB()"
+        class="db-action-btn">
+
+    <i class="fas fa-file-import"></i>
+
+    <span class="download">
+        載入預覽
+    </span>
+</button>
 </div>
 
 <input type="file" id="import-file" class="hidden" accept=".json" onchange="importDB(event)">
@@ -1132,19 +1436,47 @@ main {
 </div>
 
     <div class="top-action-right flex items-center gap-2 sm:gap-3">
-        <button onclick="downloadPDF()" class="bg-white text-slate-900 px-4 py-2 rounded-lg text-sm font-bold shadow-xl flex items-center space-x-2 hover:bg-slate-100 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a 1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            <span>PDF</span>
-        </button>
+<button
+    onclick="downloadPDF()"
+    class="top-data-action-btn bg-white text-slate-900 hover:bg-slate-100"
+>
+    <svg
+        class="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+    >
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a 1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        ></path>
+    </svg>
 
-        <button onclick="window.print()" class="bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-xl flex items-center space-x-2 hover:bg-slate-600 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-            </svg>
-            <span>列印</span>
-        </button>
+    <span>PDF</span>
+</button>
+
+<button
+    onclick="window.print()"
+    class="top-data-action-btn bg-slate-700 text-white hover:bg-slate-600"
+>
+    <svg
+        class="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+    >
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+        ></path>
+    </svg>
+
+    <span>列印</span>
+</button>
     </div>
 </div>
 
@@ -1241,7 +1573,7 @@ main {
     <div class="footer-line"></div>
 
     <p class="footer-title">
-        © 職業安全衛生室｜職業安全標準程序系統
+        © OSAI｜職業安全標準程序系統
     </p>
 
     <p class="footer-dev">
@@ -1270,7 +1602,7 @@ main {
 
             <div class="pr-8">
                 <div class="flex items-center gap-2.5">
-                    <i data-lucide="lock-keyhole" class="w-5 h-5 text-yellow-300"></i>
+                    <i class="fas fa-lock text-yellow-300 text-base"></i>
                     <h3 class="text-lg font-black tracking-wide">
                         權限登入
                     </h3>
@@ -1287,7 +1619,7 @@ main {
 
             <!-- 安全登入狀態列 -->
             <div class="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-2.5 text-base font-black">
-                <i data-lucide="shield-check" class="w-5 h-5 text-indigo-600"></i>
+                <i class="fas fa-shield-halved text-indigo-600 text-base"></i>
                 安全驗證
             </div>
 
@@ -1322,9 +1654,6 @@ main {
                 密碼錯誤，請重新輸入
             </p>
 
-            <p class="text-[10px] text-center text-slate-400 leading-relaxed">
-                未登入狀態可預覽資料、載入預覽、列印與匯出 PDF；AI 產生、編輯、儲存與資料匯出需登入權限。
-            </p>
         </div>
     </div>
 </div>
@@ -1623,8 +1952,8 @@ main {
 const apiKey = "";
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'osspis-pro';
 
-const DEFAULT_ADMIN_PASSWORD = "SamCore@1068";
-const DEFAULT_EDITOR_PASSWORD = "TeamUser001";
+const DEFAULT_ADMIN_PASSWORD = "admincore1098";
+const DEFAULT_EDITOR_PASSWORD = "teamuser001";
 const DEFAULT_EDITOR_ENABLED = true;
 
 const MASTER_RECOVERY_CODE = "SAM-SUN-CORE-RECOVERY";
@@ -1844,72 +2173,297 @@ function initIcons() {
     }
 }
 
-function updateDataActionButtons() {
-    const exportBtn = document.getElementById('export-db-btn');
-    const importBtn = document.getElementById('import-db-btn');
+/* =========================================================
+   全系統 Tooltip 統一轉換
 
-    if (exportBtn) {
-        exportBtn.innerHTML = `
-            <i data-lucide="file-output" class="w-3.5 h-3.5"></i>
-            <span class="upload">匯出資料</span>
-        `;
-exportBtn.classList.toggle('action-locked', !canExportData());
-exportBtn.classList.remove('cursor-help');
-exportBtn.classList.toggle('cursor-pointer', canExportData());
-exportBtn.classList.toggle('cursor-default', !canExportData());
-exportBtn.removeAttribute('title');
+   將瀏覽器原生 title Tooltip
+   自動轉成法規系統的 data-tooltip 樣式。
+
+   同時監控日後 JS 動態修改的 title，
+   因此角色切換、編輯模式切換後仍維持一致。
+========================================================= */
+
+function applyStandardSystemTooltip(
+    element
+) {
+
+    if (
+        !element ||
+        !(element instanceof HTMLElement)
+    ) {
+        return;
     }
+
+
+    const titleText =
+        element.getAttribute(
+            'title'
+        );
+
+
+    if (!titleText) {
+        return;
+    }
+
+
+    element.setAttribute(
+        'data-tooltip',
+        titleText
+    );
+
+
+    /*
+     * 若原本沒有 aria-label，
+     * 同步補上，避免移除 title 後
+     * 影響純圖示按鈕的可及性。
+     */
+    if (
+        !element.getAttribute(
+            'aria-label'
+        )
+    ) {
+
+        element.setAttribute(
+            'aria-label',
+            titleText
+        );
+    }
+
+
+    element.removeAttribute(
+        'title'
+    );
+
+
+    element.classList.add(
+        'system-tooltip-btn'
+    );
+}
+
+
+function initStandardSystemTooltips() {
+
+    document
+        .querySelectorAll(
+            '[title]'
+        )
+        .forEach(
+            applyStandardSystemTooltip
+        );
+}
+
+
+/*
+ * 動態監控：
+ * updateDataActionButtons()、
+ * 編輯模式、儲存按鈕等日後重新設定 title 時，
+ * 自動再次轉成統一 Tooltip。
+ */
+const standardSystemTooltipObserver =
+    new MutationObserver(
+        mutations => {
+
+            mutations.forEach(
+                mutation => {
+
+                    if (
+                        mutation.type ===
+                            'attributes' &&
+                        mutation.attributeName ===
+                            'title'
+                    ) {
+
+                        applyStandardSystemTooltip(
+                            mutation.target
+                        );
+                    }
+
+
+                    mutation.addedNodes
+                        .forEach(
+                            node => {
+
+                                if (
+                                    node.nodeType !==
+                                    Node.ELEMENT_NODE
+                                ) {
+                                    return;
+                                }
+
+
+                                applyStandardSystemTooltip(
+                                    node
+                                );
+
+
+                                node
+                                    .querySelectorAll?.(
+                                        '[title]'
+                                    )
+                                    .forEach(
+                                        applyStandardSystemTooltip
+                                    );
+                            }
+                        );
+                }
+            );
+        }
+    );
+
+
+initStandardSystemTooltips();
+
+
+standardSystemTooltipObserver.observe(
+    document.body,
+    {
+        subtree:
+            true,
+
+        childList:
+            true,
+
+        attributes:
+            true,
+
+        attributeFilter:
+            ['title']
+    }
+);
+
+function updateDataActionButtons() {
+
+    const exportBtn =
+        document.getElementById(
+            'export-db-btn'
+        );
+
+    const importBtn =
+        document.getElementById(
+            'import-db-btn'
+        );
+
+
+    /*
+     * 匯出資料：
+     * 圖示比照法規系統。
+     */
+    if (exportBtn) {
+
+        exportBtn.innerHTML = `
+            <i class="fas fa-share-nodes"></i>
+
+            <span class="upload">
+                匯出資料
+            </span>
+        `;
+
+        exportBtn.classList.toggle(
+            'action-locked',
+            !canExportData()
+        );
+
+        exportBtn.classList.remove(
+            'cursor-help'
+        );
+
+        exportBtn.classList.toggle(
+            'cursor-pointer',
+            canExportData()
+        );
+
+        exportBtn.classList.toggle(
+            'cursor-default',
+            !canExportData()
+        );
+
+        exportBtn.removeAttribute(
+            'title'
+        );
+    }
+
 
     if (importBtn) {
+
+        /*
+         * 管理者：
+         * 匯入正式資料。
+         */
         if (isAdmin) {
+
             importBtn.innerHTML = `
-                <i data-lucide="file-input" class="w-3.5 h-3.5"></i>
-                <span class="download">匯入資料</span>
+                <i class="fas fa-file-import"></i>
+
+                <span class="download">
+                    匯入資料
+                </span>
             `;
-            importBtn.title = "匯入正式資料，會覆蓋目前紀錄";
+
+            importBtn.title =
+                "匯入正式資料，會覆蓋目前紀錄";
+
+
+        /*
+         * 使用者：
+         * 載入正式資料。
+         */
         } else if (isEditor) {
+
             importBtn.innerHTML = `
-                <i data-lucide="file-input" class="w-3.5 h-3.5"></i>
-                <span class="download">載入資料</span>
+                <i class="fas fa-file-import"></i>
+
+                <span class="download">
+                    載入資料
+                </span>
             `;
-            importBtn.title = "載入正式資料，會覆蓋目前紀錄";
-} else if (isPreviewDataActive()) {
 
-    /*
-     * 預覽資料已載入：
-     * 同一顆按鈕切換成退出預覽。
-     */
-    importBtn.innerHTML = `
-        <i data-lucide="eye-off"
-           class="w-3.5 h-3.5"></i>
+            importBtn.title =
+                "載入正式資料，會覆蓋目前紀錄";
 
-        <span class="download">
-            退出預覽
-        </span>
-    `;
 
-    importBtn.title =
-        "清除目前暫存的預覽資料並回到空白檢視模式";
+        /*
+         * Viewer 已載入預覽：
+         * 切換成退出預覽。
+         */
+        } else if (
+            isPreviewDataActive()
+        ) {
 
-} else {
+            importBtn.innerHTML = `
+                <i class="fas fa-eye-slash"></i>
 
-    /*
-     * 預覽者尚未載入資料。
-     */
-    importBtn.innerHTML = `
-        <i data-lucide="file-search"
-           class="w-3.5 h-3.5"></i>
+                <span class="download">
+                    退出預覽
+                </span>
+            `;
 
-        <span class="download">
-            載入預覽
-        </span>
-    `;
+            importBtn.title =
+                "清除目前暫存的預覽資料並回到空白檢視模式";
 
-    importBtn.title =
-        "載入限時／限次預覽檔案";
-}
+
+        /*
+         * Viewer 尚未載入資料。
+         */
+        } else {
+
+            importBtn.innerHTML = `
+                <i class="fas fa-file-import"></i>
+
+                <span class="download">
+                    載入預覽
+                </span>
+            `;
+
+            importBtn.title =
+                "載入限時／限次預覽檔案";
+        }
     }
 
+
+    /*
+     * 其他區域仍使用 Lucide，
+     * 所以原初始化保留。
+     */
     initIcons();
 }
 
